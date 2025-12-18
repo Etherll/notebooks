@@ -901,7 +901,7 @@ res = model.infer(tokenizer, prompt=prompt, image_file=image_file,
 # Select ONLY 1 to save! (Both not needed!)
 
 # Save locally to 16bit
-if False: model.save_pretrained_merged("unsloth_finetune", tokenizer,)
+if False: model.save_pretrained_merged("unsloth_finetune-merged", tokenizer,)
 
 # To export and save to your Hugging Face account
 if False: model.push_to_hub_merged("YOUR_USERNAME/unsloth_finetune", tokenizer, token = "PUT_HERE")

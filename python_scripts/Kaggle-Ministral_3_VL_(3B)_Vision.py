@@ -387,7 +387,7 @@ _ = model.generate(**inputs, streamer = text_streamer, max_new_tokens = 128,
 # Select ONLY 1 to save! (Both not needed!)
 
 # Save locally to 16bit
-if False: model.save_pretrained_merged("unsloth_finetune", tokenizer,)
+if False: model.save_pretrained_merged("unsloth_finetune-merged", tokenizer,)
 
 # To export and save to your Hugging Face account
 if False: model.push_to_hub_merged("YOUR_USERNAME/unsloth_finetune", tokenizer, token = "PUT_HERE")
@@ -407,23 +407,23 @@ if False: model.push_to_hub_merged("YOUR_USERNAME/unsloth_finetune", tokenizer, 
 
 
 # Save to 8bit Q8_0
-if False: model.save_pretrained_gguf("unsloth_finetune", tokenizer,)
+if False: model.save_pretrained_gguf("model-q8_0-gguf", tokenizer,)
 # Remember to go to https://huggingface.co/settings/tokens for a token!
 # And change hf to your username!
-if False: model.push_to_hub_gguf("hf/unsloth_finetune", tokenizer, token = "")
+if False: model.push_to_hub_gguf("hf/model", tokenizer, token = "")
 
 # Save to 16bit GGUF
-if False: model.save_pretrained_gguf("unsloth_finetune", tokenizer, quantization_method = "f16")
-if False: model.push_to_hub_gguf("hf/unsloth_finetune", tokenizer, quantization_method = "f16", token = "")
+if False: model.save_pretrained_gguf("model-gguf", tokenizer, quantization_method = "f16")
+if False: model.push_to_hub_gguf("hf/model", tokenizer, quantization_method = "f16", token = "")
 
 # Save to q4_k_m GGUF
-if False: model.save_pretrained_gguf("unsloth_finetune", tokenizer, quantization_method = "q4_k_m")
-if False: model.push_to_hub_gguf("hf/unsloth_finetune", tokenizer, quantization_method = "q4_k_m", token = "")
+if False: model.save_pretrained_gguf("model-q4_k_m-gguf", tokenizer, quantization_method = "q4_k_m")
+if False: model.push_to_hub_gguf("hf/model", tokenizer, quantization_method = "q4_k_m", token = "")
 
 # Save to multiple GGUF options - much faster if you want multiple!
 if False:
     model.push_to_hub_gguf(
-        "hf/unsloth_finetune", # Change hf to your username!
+        "hf/model", # Change hf to your username!
         tokenizer,
         quantization_method = ["q4_k_m", "q8_0", "q5_k_m",],
         token = "",
