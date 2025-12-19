@@ -341,19 +341,19 @@ _ = model.generate(**inputs, max_new_tokens = 64, streamer = TextStreamer(tokeni
 if False:
     model.save_pretrained_merged("gpt-oss-finetune-mxfp4", tokenizer, save_method = "mxfp4",)
 if False: # Pushing to HF Hub
-    model.push_to_hub_merged("hf/gpt-oss-finetune", tokenizer, save_method = "mxfp4", token = "")
+    model.push_to_hub_merged("hf/gpt-oss-finetune-mxfp4", tokenizer, save_method = "mxfp4", token = "")
 
 # Merge and push to hub in 16bit
 if False: # Pushing to HF Hub
-    model.push_to_hub_merged("hf/gpt-oss-finetune", tokenizer, save_method = "merged_16bit", token = "")
+    model.push_to_hub_merged("hf/gpt-oss-finetune-merged", tokenizer, save_method = "merged_16bit", token = "")
 
 # Just LoRA adapters
 if False:
     model.save_pretrained("lora_model")
     tokenizer.save_pretrained("lora_model")
 if False: # Pushing to HF Hub
-    model.push_to_hub("hf/gpt-oss-finetune", token = "")
-    tokenizer.push_to_hub("hf/gpt-oss-finetune", token = "")
+    model.push_to_hub("hf/lora_model", token = "")
+    tokenizer.push_to_hub("hf/lora_model", token = "")
 
 
 # ### GGUF / llama.cpp Conversion
@@ -373,20 +373,20 @@ if False: # Pushing to HF Hub
 if False: model.save_pretrained_gguf("model-q8_0-gguf", tokenizer,)
 # Remember to go to https://huggingface.co/settings/tokens for a token!
 # And change hf to your username!
-if False: model.push_to_hub_gguf("hf/model", tokenizer, token = "")
+if False: model.push_to_hub_gguf("hf/model-q8_0-gguf", tokenizer, token = "")
 
 # Save to 16bit GGUF
-if False: model.save_pretrained_gguf("model-gguf", tokenizer, quantization_method = "f16")
-if False: model.push_to_hub_gguf("hf/model", tokenizer, quantization_method = "f16", token = "")
+if False: model.save_pretrained_gguf("model-gguf-fp16", tokenizer, quantization_method = "f16")
+if False: model.push_to_hub_gguf("hf/model-gguf-fp16", tokenizer, quantization_method = "f16", token = "")
 
 # Save to q4_k_m GGUF
 if False: model.save_pretrained_gguf("model-q4_k_m-gguf", tokenizer, quantization_method = "q4_k_m")
-if False: model.push_to_hub_gguf("hf/model", tokenizer, quantization_method = "q4_k_m", token = "")
+if False: model.push_to_hub_gguf("hf/model-q4_k_m-gguf", tokenizer, quantization_method = "q4_k_m", token = "")
 
 # Save to multiple GGUF options - much faster if you want multiple!
 if False:
     model.push_to_hub_gguf(
-        "hf/model", # Change hf to your username!
+        "hf/model-gguf", # Change hf to your username!
         tokenizer,
         quantization_method = ["q4_k_m", "q8_0", "q5_k_m",],
         token = "",
