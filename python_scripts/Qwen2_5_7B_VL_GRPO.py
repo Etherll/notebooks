@@ -463,23 +463,23 @@ if False:
 
 
 # Save to 8bit Q8_0
-if False: model.save_pretrained_gguf("model-q8_0-gguf", tokenizer,)
+if False: model.save_pretrained_gguf("model-Q8_0-GGUF", tokenizer,)
 # Remember to go to https://huggingface.co/settings/tokens for a token!
 # And change hf to your username!
-if False: model.push_to_hub_gguf("hf/model-q8_0-gguf", tokenizer, token = "")
+if False: model.push_to_hub_gguf("hf/model-Q8_0-GGUF", tokenizer, token = "")
 
 # Save to 16bit GGUF
-if False: model.save_pretrained_gguf("model-gguf-fp16", tokenizer, quantization_method = "f16")
-if False: model.push_to_hub_gguf("hf/model-gguf-fp16", tokenizer, quantization_method = "f16", token = "")
+if False: model.save_pretrained_gguf("model-FP16-GGUF", tokenizer, quantization_method = "f16")
+if False: model.push_to_hub_gguf("hf/model-FP16-GGUF", tokenizer, quantization_method = "f16", token = "")
 
 # Save to q4_k_m GGUF
-if False: model.save_pretrained_gguf("model-q4_k_m-gguf", tokenizer, quantization_method = "q4_k_m")
-if False: model.push_to_hub_gguf("hf/model-q4_k_m-gguf", tokenizer, quantization_method = "q4_k_m", token = "")
+if False: model.save_pretrained_gguf("model-Q4_K_M-GGUF", tokenizer, quantization_method = "q4_k_m")
+if False: model.push_to_hub_gguf("hf/model-Q4_K_M-GGUF", tokenizer, quantization_method = "q4_k_m", token = "")
 
 # Save to multiple GGUF options - much faster if you want multiple!
 if False:
     model.push_to_hub_gguf(
-        "hf/model-gguf", # Change hf to your username!
+        "hf/model-GGUF", # Change hf to your username!
         tokenizer,
         quantization_method = ["q4_k_m", "q8_0", "q5_k_m",],
         token = "",
