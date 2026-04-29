@@ -270,51 +270,46 @@ installation_grpo_kaggle_content = update_or_append_pip_install(
 )
 
 # ---------------------------------------------------------------------------
-# AMD Dev Cloud install templates
-# ROCm/AMD: torch is pre-installed as a ROCm build; skip torch/triton install.
-# All three templates (base, GRPO, Gemma4) are AMD-only; no COLAB_ branch.
+# AMD Dev Cloud install template (single canonical %%bash cell shared by every
+# AMD notebook variant). Notebook-specific extra packages (vllm, torchcodec,
+# spellchecker, etc.) and per-variant Python tweaks (e.g. UNSLOTH_VLLM_STANDBY
+# for GRPO, transformers>=5.5.0 for Gemma 4) are emitted as a SECOND cell by
+# _compose_amd_installation so the canonical template can stay literal.
+#
+# IMPORTANT: this is a %%bash cell, so plain `pip install bitsandbytes` is used
+# (no leading `!` -- the bang form is a Jupyter line magic and is not valid
+# bash). The plan author noted this trade-off.
 # ---------------------------------------------------------------------------
 
-installation_amd_content = """\
-%%capture
-import os, importlib.util, subprocess, sys
+installation_amd_cell = r"""%%bash
+python -m pip install -qU uv --root-user-action=ignore
 
-def _pip(*packages):
-    try:
-        if subprocess.run(["uv", "--version"], capture_output=True).returncode == 0:
-            cmd = ["uv", "pip", "install", "--system", "-qqq"]
-        else:
-            raise FileNotFoundError
-    except FileNotFoundError:
-        cmd = [sys.executable, "-m", "pip", "install", "-qqq"]
-    subprocess.run(cmd + list(packages), check=False)
-
-import socket
-try:
-    socket.getaddrinfo("huggingface.co", 443, socket.AF_INET)
-except socket.gaierror:
-    with open("/etc/resolv.conf", "a") as _f:
-        _f.write("nameserver 8.8.8.8\\nnameserver 8.8.4.4\\n")
-# ROCm/AMD: torch already installed as ROCm build; skip torch/triton, use [amd] extra
-try: import numpy; _np = f"numpy=={numpy.__version__}"
-except: _np = "numpy"
-try: import PIL; _pil = f"pillow=={PIL.__version__}"
-except: _pil = "pillow"
-_pip(_np, _pil, "bitsandbytes", "cut-cross-entropy", "torchao")
-_pip("--no-deps",
-    "unsloth_zoo[base] @ git+https://github.com/unslothai/unsloth-zoo",
-    "unsloth[amd] @ git+https://github.com/unslothai/unsloth",
-)
-_pip("--upgrade", "--no-deps",
-    "transformers>=5.0.0", "tokenizers", "huggingface_hub>=1.5.0",
-    "datasets==4.3.0", "accelerate", "peft", "sentencepiece",
-    "protobuf", "hf_transfer", "trl>=0.24.0", "unsloth", "unsloth_zoo",
-)
+ROCM_TAG="$({ command -v amd-smi >/dev/null 2>&1 && amd-smi version 2>/dev/null | awk -F'ROCm version: ' 'NF>1{split($2,a,"."); print "rocm"a[1]"."a[2]; ok=1; exit} END{exit !ok}'; } || { [ -r /opt/rocm/.info/version ] && awk -F. '{print "rocm"$1"."$2; exit}' /opt/rocm/.info/version; } || { command -v hipconfig >/dev/null 2>&1 && hipconfig --version 2>/dev/null | awk -F': *' '/HIP version/{split($2,a,"."); print "rocm"a[1]"."a[2]; ok=1; exit} END{exit !ok}'; } || { command -v dpkg-query >/dev/null 2>&1 && ver="$(dpkg-query -W -f='${Version}\n' rocm-core 2>/dev/null)" && [ -n "$ver" ] && awk -F'[.-]' '{print "rocm"$1"."$2; exit}' <<<"$ver"; } || { command -v rpm >/dev/null 2>&1 && ver="$(rpm -q --qf '%{VERSION}\n' rocm-core 2>/dev/null)" && [ -n "$ver" ] && awk -F'[.-]' '{print "rocm"$1"."$2; exit}' <<<"$ver"; })"
+[ -n "$ROCM_TAG" ] || { echo "Could not detect ROCm. Install ROCm first or set ROCM_TAG manually."; exit 1; }
+case "$ROCM_TAG" in
+  rocm6.[0-4]|rocm7.[02]) T="$ROCM_TAG" ;;
+  rocm6.*) T="rocm6.4" ;;
+  *) T="rocm7.1" ;;
+esac
+pip install bitsandbytes
+PYTORCH_INDEX_URL="https://download.pytorch.org/whl/${T}"
+uv pip install --system -U --force-reinstall \
+    torch torchvision torchaudio triton-rocm \
+    --index-url "$PYTORCH_INDEX_URL"
+uv pip install --system cut-cross-entropy torchao --no-deps
+uv pip install --system -U --no-deps "unsloth[amd]" "unsloth_zoo[amd]"
+uv pip install --system --no-deps -r "$(python -c 'import pathlib,site;print(next(p for r in [*site.getsitepackages(),site.getusersitepackages()] if (p:=pathlib.Path(r,"studio/backend/requirements/no-torch-runtime.txt")).exists()))')" torchao
 """
 
-installation_amd_grpo_content = """\
+
+# Per-variant extras emitted as a SEPARATE Python cell after the canonical
+# bash install cell. Empty for the default flavor; GRPO sets the vLLM standby
+# env var; Gemma 4 pins newer transformers/trl with --no-deps.
+installation_amd_extras_default = ""
+
+installation_amd_extras_grpo = """\
 %%capture
-import os, importlib.util, subprocess, sys
+import os, subprocess, sys
 
 def _pip(*packages):
     try:
@@ -327,31 +322,11 @@ def _pip(*packages):
     subprocess.run(cmd + list(packages), check=False)
 
 os.environ["UNSLOTH_VLLM_STANDBY"] = "1"
-
-import socket
-try:
-    socket.getaddrinfo("huggingface.co", 443, socket.AF_INET)
-except socket.gaierror:
-    with open("/etc/resolv.conf", "a") as _f:
-        _f.write("nameserver 8.8.8.8\\nnameserver 8.8.4.4\\n")
-# ROCm/AMD: torch already installed as ROCm build; skip torch/triton, use [amd] extra
-try: import numpy; _np = f"numpy=={numpy.__version__}"
-except: _np = "numpy"
-_pip(_np, "bitsandbytes", "cut-cross-entropy", "torchao")
-_pip("--no-deps",
-    "unsloth_zoo[base] @ git+https://github.com/unslothai/unsloth-zoo",
-    "unsloth[amd] @ git+https://github.com/unslothai/unsloth",
-)
-_pip("--upgrade", "--no-deps",
-    "transformers>=5.0.0", "tokenizers", "huggingface_hub>=1.5.0",
-    "datasets==4.3.0", "accelerate", "peft", "sentencepiece",
-    "protobuf", "hf_transfer", "trl>=0.24.0", "unsloth", "unsloth_zoo",
-)
 """
 
-installation_amd_gemma4_content = """\
+installation_amd_extras_gemma4 = """\
 %%capture
-import os, importlib.util, subprocess, sys
+import os, subprocess, sys
 
 def _pip(*packages):
     try:
@@ -363,29 +338,20 @@ def _pip(*packages):
         cmd = [sys.executable, "-m", "pip", "install", "-qqq"]
     subprocess.run(cmd + list(packages), check=False)
 
-import socket
-try:
-    socket.getaddrinfo("huggingface.co", 443, socket.AF_INET)
-except socket.gaierror:
-    with open("/etc/resolv.conf", "a") as _f:
-        _f.write("nameserver 8.8.8.8\\nnameserver 8.8.4.4\\n")
-# ROCm/AMD: torch already installed as ROCm build; skip torch/triton, use [amd] extra
-try: import numpy; _np = f"numpy=={numpy.__version__}"
-except: _np = "numpy"
-try: import PIL; _pil = f"pillow=={PIL.__version__}"
-except: _pil = "pillow"
-_pip(_np, _pil, "bitsandbytes", "cut-cross-entropy", "torchao")
-_pip("--no-deps",
-    "unsloth_zoo[base] @ git+https://github.com/unslothai/unsloth-zoo",
-    "unsloth[amd] @ git+https://github.com/unslothai/unsloth",
-)
-# Gemma 4 requires transformers >= 5.5.0
+# Gemma 4 requires transformers >= 5.5.0 / trl >= 0.28.0
 _pip("--upgrade", "--no-deps",
     "transformers>=5.5.0", "tokenizers", "huggingface_hub>=1.5.0",
     "datasets==4.3.0", "accelerate", "peft", "sentencepiece",
     "protobuf", "hf_transfer", "trl>=0.28.0", "unsloth", "unsloth_zoo",
 )
 """
+
+# Backwards-compatible aliases. Several places in the script (and external
+# callers) reference these names; keep them pointing at the shared template
+# so any direct usage still produces the canonical install cell.
+installation_amd_content = installation_amd_cell
+installation_amd_grpo_content = installation_amd_cell
+installation_amd_gemma4_content = installation_amd_cell
 
 installation_synthetic_data_content = """%%capture
 import os
@@ -1082,6 +1048,16 @@ DONT_UPDATE_EXCEPTIONS = [
     "OpenEnv_gpt_oss_(20B)_Reinforcement_Learning_2048_Game_BF16.ipynb", # OpenEnv BF16 variant
     "Synthetic_Data_Hackathon.ipynb",                                  # Hackathon-specific notebook
     "Ministral_3_(3B)_Reinforcement_Learning_Sudoku_Game.ipynb",       # Custom Sudoku RL environment
+]
+
+# Notebooks that live ONLY under nb/ (not original_template/) but for which we
+# still want to mint AMD counterparts. They remain in DONT_UPDATE_EXCEPTIONS so
+# normal generation skips them; the AMD generator below explicitly sources them
+# from nb/ regardless. Only the AMD path uses this allowlist -- non-AMD
+# behavior is unchanged.
+AMD_ONLY_NB_SOURCE_ALLOWLIST = [
+    "gpt_oss_(20B)_Reinforcement_Learning_2048_Game_BF16.ipynb",
+    "OpenEnv_gpt_oss_(20B)_Reinforcement_Learning_2048_Game_BF16.ipynb",
 ]
 
 # Notebooks excluded from automatic README.md listing. You can use a basename,
@@ -2507,14 +2483,22 @@ def _is_amd_grpo_like_path(notebook_path):
 
 
 def _compose_amd_installation(notebook_path, source_install_texts):
-    """Build an AMD install cell while preserving notebook-specific packages."""
+    """Build the AMD install cell(s) while preserving notebook-specific packages.
+
+    Returns ``(install_cell_text, extras_cell_text_or_None)``. The first item
+    is the canonical %%bash install cell shared across all AMD notebooks. The
+    second item, when not None, is a follow-up Python cell containing
+    per-variant tweaks (e.g. UNSLOTH_VLLM_STANDBY for GRPO, transformers>=5.5
+    for Gemma 4) plus any notebook-specific extra packages or setup lines
+    extracted from the source notebook's install cell(s).
+    """
     lowered = notebook_path.lower()
     if is_path_contains_any(lowered, ["gemma4"]):
-        amd_installation = installation_amd_gemma4_content
+        variant_extras = installation_amd_extras_gemma4
     elif _is_amd_grpo_like_path(notebook_path):
-        amd_installation = installation_amd_grpo_content
+        variant_extras = installation_amd_extras_grpo
     else:
-        amd_installation = installation_amd_content
+        variant_extras = installation_amd_extras_default
 
     setup_lines = []
     package_groups = []
@@ -2524,6 +2508,7 @@ def _compose_amd_installation(notebook_path, source_install_texts):
             continue
         for line in _extract_preserved_setup_lines(text):
             if line.startswith('os.environ["UNSLOTH_VLLM_STANDBY"]') and _is_amd_grpo_like_path(notebook_path):
+                # Already covered by the GRPO variant_extras block.
                 continue
             if line not in seen_setup:
                 seen_setup.add(line)
@@ -2550,9 +2535,26 @@ def _compose_amd_installation(notebook_path, source_install_texts):
         if specs:
             extra_blocks.append(_format_amd_pip_call(flags, specs))
 
-    if not extra_blocks:
-        return amd_installation
-    return amd_installation.rstrip() + "\n\n# Notebook-specific packages/setup preserved from the source notebook.\n" + "\n".join(extra_blocks) + "\n"
+    install_cell = installation_amd_cell
+
+    if not variant_extras and not extra_blocks:
+        return install_cell, None
+
+    extras_parts = []
+    if variant_extras:
+        extras_parts.append(variant_extras.rstrip())
+    if extra_blocks:
+        if not variant_extras:
+            # Need a `_pip` definition for the package blocks to call into.
+            extras_parts.append(installation_amd_extras_grpo.rstrip().split(
+                'os.environ["UNSLOTH_VLLM_STANDBY"]', 1
+            )[0].rstrip())
+        extras_parts.append(
+            "# Notebook-specific packages/setup preserved from the source notebook.\n"
+            + "\n".join(extra_blocks)
+        )
+    extras_cell = "\n\n".join(extras_parts) + "\n"
+    return install_cell, extras_cell
 
 
 def _append_missing_amd_install_groups(new_install_text, source_install_text):
@@ -3839,10 +3841,13 @@ def update_notebook_sections(
 
                         # AMD INSTALLATION: final override for all AMD-prefixed notebooks.
                         # Must come last, but compose notebook-specific deps from the selected source install.
+                        amd_extras_cell_text = None
                         if is_amd_notebook:
                             selected_install_text = "".join(installation) if isinstance(installation, list) else installation
                             source_install_texts.insert(0, selected_install_text)
-                            installation = _compose_amd_installation(notebook_path, source_install_texts)
+                            installation, amd_extras_cell_text = _compose_amd_installation(
+                                notebook_path, source_install_texts
+                            )
 
                         # Guard: warn if the replacement drops packages
                         old_install_src = notebook_content["cells"][i + 1].get("source", "")
@@ -3866,14 +3871,36 @@ def update_notebook_sections(
                             next_install_src = _cell_source_text(notebook_content["cells"][i + 2])
                             if _is_install_like_cell(notebook_content["cells"], i + 2, next_install_src):
                                 amd_followup_install_src = next_install_src
-                                new_install_text = _append_missing_amd_install_groups(
-                                    new_install_text,
+                                # Fold any extra package groups from the source's
+                                # follow-up install cell into the AMD extras cell
+                                # (or build one if we don't have one yet). When
+                                # there's no extras cell yet, seed it with a
+                                # `_pip` definition so the appended _pip(...)
+                                # calls have something to call into.
+                                if not amd_extras_cell_text:
+                                    amd_extras_cell_text = installation_amd_extras_grpo.rstrip().split(
+                                        'os.environ["UNSLOTH_VLLM_STANDBY"]', 1
+                                    )[0].rstrip() + "\n"
+                                amd_extras_cell_text = _append_missing_amd_install_groups(
+                                    amd_extras_cell_text,
                                     amd_followup_install_src,
                                 )
 
                         notebook_content["cells"][i + 1]["source"] = new_install_text
                         if amd_followup_install_src is not None:
                             del notebook_content["cells"][i + 2]
+                        # Insert/replace the AMD extras cell directly after the
+                        # canonical install cell so per-variant tweaks and
+                        # notebook-specific extras run after the bash setup.
+                        if is_amd_notebook and amd_extras_cell_text and amd_extras_cell_text.strip():
+                            extras_cell = {
+                                "cell_type": "code",
+                                "metadata": {},
+                                "source": amd_extras_cell_text,
+                                "execution_count": None,
+                                "outputs": [],
+                            }
+                            notebook_content["cells"].insert(i + 2, extras_cell)
                         updated = True
                         # TODO: Remove after GRPO numpy bug fixed! 
                         # Error: ValueError: numpy.dtype size changed, may indicate binary incompatibility. Expected 96 from C header, got 88 from PyObject
@@ -5024,6 +5051,9 @@ def copy_and_update_amd_notebooks(
             amd_base_names = tracked_names
     except Exception:
         pass
+    # AMD-only carve-out: notebooks in DONT_UPDATE_EXCEPTIONS that still need an
+    # AMD counterpart minted from their nb/ copy (no original_template version).
+    amd_base_names = set(amd_base_names) | set(AMD_ONLY_NB_SOURCE_ALLOWLIST)
     for path in glob(os.path.join(destination_dir, "*.ipynb")):
         basename = os.path.basename(path)
         if basename.startswith(("AMD-", "Kaggle-", f"{hf_course_name}-")):
