@@ -7,37 +7,43 @@
 # <a href="https://discord.gg/unsloth"><img src="https://github.com/unslothai/unsloth/raw/main/images/Discord button.png" width="145"></a>
 # <a href="https://unsloth.ai/docs/"><img src="https://github.com/unslothai/unsloth/blob/main/images/documentation%20green%20button.png?raw=true" width="125"></a> Join Discord if you need help + ⭐ <i>Star us on <a href="https://github.com/unslothai/unsloth">Github</a> </i> ⭐
 # </div>
-# 
+#
 # To install Unsloth on your local device, follow [our guide](https://unsloth.ai/docs/get-started/install). This notebook is licensed [LGPL-3.0](https://github.com/unslothai/notebooks?tab=LGPL-3.0-1-ov-file#readme).
-# 
+#
 # You will learn how to do [data prep](#Data), how to [train](#Train), how to [run the model](#Inference), & how to save it
 
 # ### News
 
 # Introducing **Unsloth Studio** - a new open source, no-code web UI to train and run LLMs. [Blog](https://unsloth.ai/docs/new/studio) • [Notebook](https://colab.research.google.com/github/unslothai/unsloth/blob/main/studio/Unsloth_Studio_Colab.ipynb)
-# 
+#
 # <table><tr>
 # <td align="center"><a href="https://unsloth.ai/docs/new/studio"><img src="https://unsloth.ai/docs/~gitbook/image?url=https%3A%2F%2F3215535692-files.gitbook.io%2F~%2Ffiles%2Fv0%2Fb%2Fgitbook-x-prod.appspot.com%2Fo%2Fspaces%252FxhOjnexMCB3dmuQFQ2Zq%252Fuploads%252FxV1PO5DbF3ksB51nE2Tw%252Fmore%2520cropped%2520ui%2520for%2520homepage.png%3Falt%3Dmedia%26token%3Df75942c9-3d8d-4b59-8ba2-1a4a38de1b86&width=376&dpr=3&quality=100&sign=a663c397&sv=2" width="200" height="120" alt="Unsloth Studio Training UI"></a><br><sub><b>Train models</b> — no code needed</sub></td>
 # <td align="center"><a href="https://unsloth.ai/docs/new/studio"><img src="https://unsloth.ai/docs/~gitbook/image?url=https%3A%2F%2F3215535692-files.gitbook.io%2F~%2Ffiles%2Fv0%2Fb%2Fgitbook-x-prod.appspot.com%2Fo%2Fspaces%252FxhOjnexMCB3dmuQFQ2Zq%252Fuploads%252FRCnTAZ6Uh88DIlU3g0Ij%252Fmainpage%2520unsloth.png%3Falt%3Dmedia%26token%3D837c96b6-bd09-4e81-bc76-fa50421e9bfb&width=376&dpr=3&quality=100&sign=c1a39da1&sv=2" width="200" height="120" alt="Unsloth Studio Chat UI"></a><br><sub><b>Run GGUF models</b> on Mac, Windows & Linux</sub></td>
 # </tr></table>
-# 
+#
 # Train MoEs - DeepSeek, GLM, Qwen and gpt-oss 12x faster with 35% less VRAM. [Blog](https://unsloth.ai/docs/new/faster-moe)
-# 
+#
 # Ultra Long-Context Reinforcement Learning is here with 7x more context windows! [Blog](https://unsloth.ai/docs/new/grpo-long-context)
-# 
+#
 # New in Reinforcement Learning: [FP8 RL](https://unsloth.ai/docs/new/fp8-reinforcement-learning) • [Vision RL](https://unsloth.ai/docs/new/vision-reinforcement-learning-vlm-rl) • [Standby](https://unsloth.ai/docs/basics/memory-efficient-rl) • [gpt-oss RL](https://unsloth.ai/docs/new/gpt-oss-reinforcement-learning)
-# 
+#
 # Visit our docs for all our [model uploads](https://unsloth.ai/docs/get-started/unsloth-model-catalog) and [notebooks](https://unsloth.ai/docs/get-started/unsloth-notebooks).
 
 # # ### Installation
-# 
+#
 # # In[ ]:
-# 
-# 
-# get_ipython().run_cell_magic('capture', '', 'import os, importlib.util, subprocess, sys\n\ndef _pip(*packages):\n    try:\n        if subprocess.run(["uv", "--version"], capture_output=True).returncode == 0:\n            cmd = ["uv", "pip", "install", "--system", "-qqq"]\n        else:\n            raise FileNotFoundError\n    except FileNotFoundError:\n        cmd = [sys.executable, "-m", "pip", "install", "-qqq"]\n    subprocess.run(cmd + list(packages), check=False)\n\nimport socket\ntry:\n    socket.getaddrinfo("huggingface.co", 443, socket.AF_INET)\nexcept socket.gaierror:\n    with open("/etc/resolv.conf", "a") as _f:\n        _f.write("nameserver 8.8.8.8\\nnameserver 8.8.4.4\\n")\n# ROCm/AMD: torch already installed as ROCm build; skip torch/triton, use [amd] extra\ntry: import numpy; _np = f"numpy=={numpy.__version__}"\nexcept: _np = "numpy"\ntry: import PIL; _pil = f"pillow=={PIL.__version__}"\nexcept: _pil = "pillow"\n_pip(_np, _pil, "bitsandbytes", "cut-cross-entropy", "torchao")\n_pip("--no-deps",\n    "unsloth_zoo[base] @ git+https://github.com/unslothai/unsloth-zoo",\n    "unsloth[amd] @ git+https://github.com/unslothai/unsloth",\n)\n_pip("--upgrade", "--no-deps",\n    "transformers>=5.0.0", "tokenizers", "huggingface_hub>=1.5.0",\n    "datasets==4.3.0", "accelerate", "peft", "sentencepiece",\n    "protobuf", "hf_transfer", "trl>=0.24.0", "unsloth", "unsloth_zoo",\n)\n\n# Notebook-specific packages/setup preserved from the source notebook.\n_pip(\n    "sentencepiece",\n    "protobuf",\n    "datasets==4.3.0",\n    "huggingface_hub>=0.34.0",\n    "hf_transfer",\n    "transformers==4.56.2",\n)\n_pip(\n    "--no-deps",\n    "accelerate",\n    "peft",\n    "trl",\n    "trl==0.22.2",\n    "transformers>=5.0.0",\n    "tokenizers",\n    "huggingface_hub>=1.5.0",\n    "datasets==4.3.0",\n    "sentencepiece",\n    "protobuf",\n    "hf_transfer",\n    "trl>=0.24.0",\n)\n')
-# 
-# 
-# # ### Unsloth
+#
+#
+# get_ipython().run_cell_magic('bash', '', 'python -m pip install -qU uv --root-user-action=ignore\n\nROCM_TAG="$({ command -v amd-smi >/dev/null 2>&1 && amd-smi version 2>/dev/null | awk -F\'ROCm version: \' \'NF>1{split($2,a,"."); print "rocm"a[1]"."a[2]; ok=1; exit} END{exit !ok}\'; } || { [ -r /opt/rocm/.info/version ] && awk -F. \'{print "rocm"$1"."$2; exit}\' /opt/rocm/.info/version; } || { command -v hipconfig >/dev/null 2>&1 && hipconfig --version 2>/dev/null | awk -F\': *\' \'/HIP version/{split($2,a,"."); print "rocm"a[1]"."a[2]; ok=1; exit} END{exit !ok}\'; } || { command -v dpkg-query >/dev/null 2>&1 && ver="$(dpkg-query -W -f=\'${Version}\\n\' rocm-core 2>/dev/null)" && [ -n "$ver" ] && awk -F\'[.-]\' \'{print "rocm"$1"."$2; exit}\' <<<"$ver"; } || { command -v rpm >/dev/null 2>&1 && ver="$(rpm -q --qf \'%{VERSION}\\n\' rocm-core 2>/dev/null)" && [ -n "$ver" ] && awk -F\'[.-]\' \'{print "rocm"$1"."$2; exit}\' <<<"$ver"; })"\n[ -n "$ROCM_TAG" ] || { echo "Could not detect ROCm. Install ROCm first or set ROCM_TAG manually."; exit 1; }\ncase "$ROCM_TAG" in\n  rocm6.[0-4]|rocm7.[02]) T="$ROCM_TAG" ;;\n  rocm6.*) T="rocm6.4" ;;\n  *) T="rocm7.1" ;;\nesac\npip install bitsandbytes\nPYTORCH_INDEX_URL="https://download.pytorch.org/whl/${T}"\nuv pip install --system -U --force-reinstall \\\n    torch torchvision torchaudio triton-rocm \\\n    --index-url "$PYTORCH_INDEX_URL"\nuv pip install --system cut-cross-entropy torchao --no-deps\nuv pip install --system -U --no-deps "unsloth[amd]" "unsloth_zoo[amd]"\nuv pip install --system --no-deps -r "$(python -c \'import pathlib,site;print(next(p for r in [*site.getsitepackages(),site.getusersitepackages()] if (p:=pathlib.Path(r,"studio/backend/requirements/no-torch-runtime.txt")).exists()))\')" torchao\n')
+#
+#
+# # In[ ]:
+#
+#
+# get_ipython().run_cell_magic('capture', '', 'import os, subprocess, sys\n\ndef _pip(*packages):\n    try:\n        if subprocess.run(["uv", "--version"], capture_output=True).returncode == 0:\n            cmd = ["uv", "pip", "install", "--system", "-qqq"]\n        else:\n            raise FileNotFoundError\n    except FileNotFoundError:\n        cmd = [sys.executable, "-m", "pip", "install", "-qqq"]\n    subprocess.run(cmd + list(packages), check=False)\n\n# Notebook-specific packages/setup preserved from the source notebook.\n_pip(\n    "sentencepiece",\n    "protobuf",\n    "datasets==4.3.0",\n    "huggingface_hub>=0.34.0",\n    "hf_transfer",\n    "transformers==4.56.2",\n)\n_pip(\n    "--no-deps",\n    "accelerate",\n    "peft",\n    "trl==0.22.2",\n)\n')
+#
+#
+## ### Unsloth
 
 # In[ ]:
 
@@ -374,20 +380,20 @@ dpo_trainer.train()
 
 
 # And we're done! If you have any questions on Unsloth, we have a [Discord](https://discord.gg/unsloth) channel! If you find any bugs or want to keep updated with the latest LLM stuff, or need help, join projects etc, feel free to join our Discord!
-# 
+#
 # Some other resources:
 # 1. Looking to use Unsloth locally? Read our [Installation Guide](https://unsloth.ai/docs/get-started/install) for details on installing Unsloth on Windows, Docker, AMD, Intel GPUs.
 # 2. Learn how to do Reinforcement Learning with our [RL Guide and notebooks](https://unsloth.ai/docs/get-started/reinforcement-learning-rl-guide).
 # 3. Read our guides and notebooks for [Text-to-speech (TTS)](https://unsloth.ai/docs/basics/text-to-speech-tts-fine-tuning) and [vision](https://unsloth.ai/docs/basics/vision-fine-tuning) model support.
 # 4. Explore our [LLM Tutorials Directory](https://unsloth.ai/docs/models/tutorials-how-to-fine-tune-and-run-llms) to find dedicated guides for each model.
 # 5. Need help with Inference? Read our [Inference & Deployment page](https://unsloth.ai/docs/basics/inference-and-deployment) for details on using vLLM, llama.cpp, Ollama etc.
-# 
+#
 # <div class="align-center">
 #   <a href="https://unsloth.ai"><img src="https://github.com/unslothai/unsloth/raw/main/images/unsloth%20new%20logo.png" width="115"></a>
 #   <a href="https://discord.gg/unsloth"><img src="https://github.com/unslothai/unsloth/raw/main/images/Discord.png" width="145"></a>
 #   <a href="https://unsloth.ai/docs/"><img src="https://github.com/unslothai/unsloth/blob/main/images/documentation%20green%20button.png?raw=true" width="125"></a>
-# 
+#
 #   Join Discord if you need help + ⭐️ <i>Star us on <a href="https://github.com/unslothai/unsloth">Github</a> </i> ⭐️
-# 
+#
 #   This notebook and all Unsloth notebooks are licensed [LGPL-3.0](https://github.com/unslothai/notebooks?tab=LGPL-3.0-1-ov-file#readme)
 # </div>

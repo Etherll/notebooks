@@ -7,17 +7,17 @@
 # <a href="https://discord.gg/unsloth"><img src="https://github.com/unslothai/unsloth/raw/main/images/Discord button.png" width="145"></a>
 # <a href="https://unsloth.ai/docs/"><img src="https://github.com/unslothai/unsloth/blob/main/images/documentation%20green%20button.png?raw=true" width="125"></a> Join Discord if you need help + ⭐ <i>Star us on <a href="https://github.com/unslothai/unsloth">Github</a> </i> ⭐
 # </div>
-# 
+#
 # To install Unsloth on your local device, follow [our guide](https://unsloth.ai/docs/get-started/install). This notebook is licensed [LGPL-3.0](https://github.com/unslothai/notebooks?tab=LGPL-3.0-1-ov-file#readme).
-# 
+#
 # You will learn how to do [data prep](#Data), how to [train](#Train), how to [run the model](#Inference), & how to save it
 
 # # Goal: Make Gemma 4 solve Sudoku puzzles with Reinforcement Learning
-# 
+#
 # Our goal is to make Gemma 4 learn to solve Sudoku puzzles using reinforcement learning (GRPO).
 # The model will devise a strategy to fill in empty cells, and we'll reward it for correct placements
 # and completing valid puzzles.
-# 
+#
 # <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/1/12/Sudoku_Puzzle_by_L2G-20050714_solution_standardized_layout.svg/1280px-Sudoku_Puzzle_by_L2G-20050714_solution_standardized_layout.svg.png" height="300" />
 
 # # Installation
@@ -26,7 +26,13 @@
 # In[ ]:
 
 
-get_ipython().run_cell_magic('capture', '', 'import os, importlib.util, subprocess, sys\n\ndef _pip(*packages):\n    try:\n        if subprocess.run(["uv", "--version"], capture_output=True).returncode == 0:\n            cmd = ["uv", "pip", "install", "--system", "-qqq"]\n        else:\n            raise FileNotFoundError\n    except FileNotFoundError:\n        cmd = [sys.executable, "-m", "pip", "install", "-qqq"]\n    subprocess.run(cmd + list(packages), check=False)\n\nimport socket\ntry:\n    socket.getaddrinfo("huggingface.co", 443, socket.AF_INET)\nexcept socket.gaierror:\n    with open("/etc/resolv.conf", "a") as _f:\n        _f.write("nameserver 8.8.8.8\\nnameserver 8.8.4.4\\n")\n# ROCm/AMD: torch already installed as ROCm build; skip torch/triton, use [amd] extra\ntry: import numpy; _np = f"numpy=={numpy.__version__}"\nexcept: _np = "numpy"\ntry: import PIL; _pil = f"pillow=={PIL.__version__}"\nexcept: _pil = "pillow"\n_pip(_np, _pil, "bitsandbytes", "cut-cross-entropy", "torchao")\n_pip("--no-deps",\n    "unsloth_zoo[base] @ git+https://github.com/unslothai/unsloth-zoo",\n    "unsloth[amd] @ git+https://github.com/unslothai/unsloth",\n)\n# Gemma 4 requires transformers >= 5.5.0\n_pip("--upgrade", "--no-deps",\n    "transformers>=5.5.0", "tokenizers", "huggingface_hub>=1.5.0",\n    "datasets==4.3.0", "accelerate", "peft", "sentencepiece",\n    "protobuf", "hf_transfer", "trl>=0.28.0", "unsloth", "unsloth_zoo",\n)\n\n# Notebook-specific packages/setup preserved from the source notebook.\nimport torch; torch._dynamo.config.recompile_limit = 64;\n_pip(\n    "sentencepiece",\n    "protobuf",\n    "datasets==4.3.0",\n    "huggingface_hub>=0.34.0",\n    "hf_transfer",\n    "torchcodec",\n    "vllm",\n)\n_pip(\n    "--no-deps",\n    "accelerate",\n    "peft",\n    "trl",\n    "transformers==5.5.0",\n    "transformers>=5.5.0",\n    "tokenizers",\n    "huggingface_hub>=1.5.0",\n    "datasets==4.3.0",\n    "sentencepiece",\n    "protobuf",\n    "hf_transfer",\n    "trl>=0.28.0",\n    "timm",\n)\n')
+get_ipython().run_cell_magic('bash', '', 'python -m pip install -qU uv --root-user-action=ignore\n\nROCM_TAG="$({ command -v amd-smi >/dev/null 2>&1 && amd-smi version 2>/dev/null | awk -F\'ROCm version: \' \'NF>1{split($2,a,"."); print "rocm"a[1]"."a[2]; ok=1; exit} END{exit !ok}\'; } || { [ -r /opt/rocm/.info/version ] && awk -F. \'{print "rocm"$1"."$2; exit}\' /opt/rocm/.info/version; } || { command -v hipconfig >/dev/null 2>&1 && hipconfig --version 2>/dev/null | awk -F\': *\' \'/HIP version/{split($2,a,"."); print "rocm"a[1]"."a[2]; ok=1; exit} END{exit !ok}\'; } || { command -v dpkg-query >/dev/null 2>&1 && ver="$(dpkg-query -W -f=\'${Version}\\n\' rocm-core 2>/dev/null)" && [ -n "$ver" ] && awk -F\'[.-]\' \'{print "rocm"$1"."$2; exit}\' <<<"$ver"; } || { command -v rpm >/dev/null 2>&1 && ver="$(rpm -q --qf \'%{VERSION}\\n\' rocm-core 2>/dev/null)" && [ -n "$ver" ] && awk -F\'[.-]\' \'{print "rocm"$1"."$2; exit}\' <<<"$ver"; })"\n[ -n "$ROCM_TAG" ] || { echo "Could not detect ROCm. Install ROCm first or set ROCM_TAG manually."; exit 1; }\ncase "$ROCM_TAG" in\n  rocm6.[0-4]|rocm7.[02]) T="$ROCM_TAG" ;;\n  rocm6.*) T="rocm6.4" ;;\n  *) T="rocm7.1" ;;\nesac\npip install bitsandbytes\nPYTORCH_INDEX_URL="https://download.pytorch.org/whl/${T}"\nuv pip install --system -U --force-reinstall \\\n    torch torchvision torchaudio triton-rocm \\\n    --index-url "$PYTORCH_INDEX_URL"\nuv pip install --system cut-cross-entropy torchao --no-deps\nuv pip install --system -U --no-deps "unsloth[amd]" "unsloth_zoo[amd]"\nuv pip install --system --no-deps -r "$(python -c \'import pathlib,site;print(next(p for r in [*site.getsitepackages(),site.getusersitepackages()] if (p:=pathlib.Path(r,"studio/backend/requirements/no-torch-runtime.txt")).exists()))\')" torchao\n')
+
+
+# In[ ]:
+
+
+get_ipython().run_cell_magic('capture', '', 'import os, subprocess, sys\n\ndef _pip(*packages):\n    try:\n        if subprocess.run(["uv", "--version"], capture_output=True).returncode == 0:\n            cmd = ["uv", "pip", "install", "--system", "-qqq"]\n        else:\n            raise FileNotFoundError\n    except FileNotFoundError:\n        cmd = [sys.executable, "-m", "pip", "install", "-qqq"]\n    subprocess.run(cmd + list(packages), check=False)\n\n# Gemma 4 requires transformers >= 5.5.0 / trl >= 0.28.0\n_pip("--upgrade", "--no-deps",\n    "transformers>=5.5.0", "tokenizers", "huggingface_hub>=1.5.0",\n    "datasets==4.3.0", "accelerate", "peft", "sentencepiece",\n    "protobuf", "hf_transfer", "trl>=0.28.0", "unsloth", "unsloth_zoo",\n)\n\n# Notebook-specific packages/setup preserved from the source notebook.\nimport torch; torch._dynamo.config.recompile_limit = 64;\n_pip(\n    "sentencepiece",\n    "protobuf",\n    "datasets==4.3.0",\n    "huggingface_hub>=0.34.0",\n    "hf_transfer",\n    "torchcodec",\n)\n_pip(\n    "--no-deps",\n    "accelerate",\n    "peft",\n    "trl",\n    "transformers==5.5.0",\n    "tokenizers",\n    "timm",\n)\n')
 
 
 # ### Unsloth
@@ -79,7 +85,7 @@ model = FastVisionModel.get_peft_model(
 
 
 # # Sudoku Game Implementation
-# 
+#
 # We use GPT-5 to create a clean Sudoku solver environment. The strategy outputs "row,col,value" to fill cells.
 
 # In[ ]:
@@ -299,7 +305,7 @@ print(f"State: {game.state()}, Moves: {game.moves()}")
 # If we do some other action that's not part of the action space, we will get an error, and the game will not accept anymore actions.
 
 # # RL Environment Setup
-# 
+#
 # Execute strategies with time limits to prevent infinite loops.
 
 # In[ ]:
@@ -389,9 +395,9 @@ print(game.pretty())
 
 
 # # Code Execution
-# 
+#
 # To execute and create a new Python function, we first have to check if the function does not call other global variables or cheat. This is called `countering reward hacking` since we don't want the function to cheat.
-# 
+#
 # For example the below piece of code is fine, since it only imports Python level functions. We use `check_python_modules`:
 
 # In[ ]:
@@ -431,7 +437,7 @@ print(info)
 
 
 # # Data & RL task setup
-# 
+#
 # Create the prompt that instructs the model to generate a Sudoku solving strategy. You can customize this to some other task for another RL task.
 
 # In[ ]:
@@ -490,11 +496,11 @@ result = model.generate(**inputs, streamer = text_streamer, max_new_tokens = 128
 
 
 # # Reward functions
-# 
+#
 # We now design a `extract_function` function which simply extracts the function wrapped in 3 back ticks.
-# 
+#
 # And 3 reward functions:
-# 
+#
 # 1. `function_works` which rewards the model if the strategy is a valid Python function.
 # 2. `no_cheating` which checks if the function imported other modules, and if it did, we penalize it.
 # 3. `strategy_succeeds` which checks if the game strategy actually succeeds in attaining Sudoku after running the auto-generated strategy.
@@ -516,7 +522,7 @@ def extract_function(text):
 
 
 # **Reward 1: Function Works**
-# 
+#
 # Checks if the generated code is valid Python and can be executed.
 
 # In[ ]:
@@ -547,7 +553,7 @@ def function_works(completions, **kwargs):
 
 
 # **Reward 2: No Cheating**
-# 
+#
 # Penalizes functions that import external libraries.
 
 # In[ ]:
@@ -570,7 +576,7 @@ def no_cheating(completions, **kwargs):
 
 
 # **Reward 3: Strategy Succeeds**
-# 
+#
 # Rewards strategies that successfully solve Sudoku puzzles.
 
 # In[ ]:
@@ -649,7 +655,7 @@ def strategy_succeeds(completions, **kwargs):
 
 
 # # Dataset Preparation
-# 
+#
 # Create the training dataset.
 
 # In[ ]:
@@ -676,7 +682,7 @@ print(dataset[0])
 
 # <a name="Train"></a>
 # ### Train the model
-# 
+#
 # Now set up GRPO Trainer and all configurations! We also support GSPO, GAPO, Dr GRPO and more! Go the Unsloth [Reinforcement Learning Docs](https://unsloth.ai/docs/get-started/reinforcement-learning-rl-guide) for more options.
 
 # In[ ]:
@@ -718,9 +724,9 @@ training_args = GRPOConfig(
 
 
 # And let's run the trainer! If you scroll up, you'll see a table of rewards. The goal is to see the `reward` column increase!
-# 
+#
 # You might have to wait 150 to 200 steps for any action. You'll probably get low reward for the first 100 steps. Please be patient!
-# 
+#
 # | Step | Training Loss | reward    | reward_std | completion_length | kl       |
 # |------|---------------|-----------|------------|-------------------|----------|
 # | 1    | 0.000000      | 0.125000  | 0.000000   | 200.000000        | 0.000000 |
@@ -751,7 +757,7 @@ trainer = GRPOTrainer(
 
 
 # And let's train the model!
-# 
+#
 # **NOTE** A T4 free GPU might take 5 minutes for one generation sadly since it's an old GPU - A100 or H100 will be much faster!
 
 # In[ ]:
@@ -810,7 +816,7 @@ _ = model.generate(
 
 # <a name="Save"></a>
 # ### Saving to float16 for VLLM
-# 
+#
 # We also support saving to `float16` directly. Select `merged_16bit` for float16 or `merged_4bit` for int4. We also allow `lora` adapters as a fallback. Use `push_to_hub_merged` to upload to your Hugging Face account! You can go to https://huggingface.co/settings/tokens for your personal tokens. See [our docs](https://unsloth.ai/docs/basics/inference-and-deployment) for more deployment options.
 
 # In[ ]:
@@ -835,12 +841,12 @@ if False:
 
 # ### GGUF / llama.cpp Conversion
 # To save to `GGUF` / `llama.cpp`, we support it natively now! We clone `llama.cpp` and we default save it to `q8_0`. We allow all methods like `q4_k_m`. Use `save_pretrained_gguf` for local saving and `push_to_hub_gguf` for uploading to HF.
-# 
+#
 # Some supported quant methods (full list on our [docs page](https://unsloth.ai/docs/basics/inference-and-deployment/saving-to-gguf)):
 # * `q8_0` - Fast conversion. High resource use, but generally acceptable.
 # * `q4_k_m` - Recommended. Uses Q6_K for half of the attention.wv and feed_forward.w2 tensors, else Q4_K.
 # * `q5_k_m` - Recommended. Uses Q6_K for half of the attention.wv and feed_forward.w2 tensors, else Q5_K.
-# 
+#
 # [**NEW**] To finetune and auto export to Ollama, try our [Ollama notebook](https://colab.research.google.com/github/unslothai/notebooks/blob/main/nb/Llama3_(8B)-Ollama.ipynb)
 
 # In[ ]:
@@ -871,21 +877,21 @@ if False:
 
 
 # Now, use the `gemma_4_finetune.Q8_0.gguf` file or `gemma_4_finetune.Q4_K_M.gguf` file in llama.cpp.
-# 
+#
 # And we're done! If you have any questions on Unsloth, we have a [Discord](https://discord.gg/unsloth) channel! If you find any bugs or want to keep updated with the latest LLM stuff, or need help, join projects etc, feel free to join our Discord!
-# 
+#
 # Some other resources:
 # 1. Train your own reasoning model - Llama GRPO notebook [Free Colab](https://colab.research.google.com/github/unslothai/notebooks/blob/main/nb/Llama3.1_(8B)-GRPO.ipynb)
 # 2. Saving finetunes to Ollama. [Free notebook](https://colab.research.google.com/github/unslothai/notebooks/blob/main/nb/Llama3_(8B)-Ollama.ipynb)
 # 3. Llama 3.2 Vision finetuning - Radiography use case. [Free Colab](https://colab.research.google.com/github/unslothai/notebooks/blob/main/nb/Llama3.2_(11B)-Vision.ipynb)
 # 4. See notebooks for DPO, ORPO, Continued pretraining, conversational finetuning and more on our [documentation](https://unsloth.ai/docs/get-started/unsloth-notebooks)!
-# 
+#
 # <div class="align-center">
 #   <a href="https://unsloth.ai"><img src="https://github.com/unslothai/unsloth/raw/main/images/unsloth%20new%20logo.png" width="115"></a>
 #   <a href="https://discord.gg/unsloth"><img src="https://github.com/unslothai/unsloth/raw/main/images/Discord.png" width="145"></a>
 #   <a href="https://unsloth.ai/docs/"><img src="https://github.com/unslothai/unsloth/blob/main/images/documentation%20green%20button.png?raw=true" width="125"></a>
-# 
+#
 #   Join Discord if you need help + ⭐️ <i>Star us on <a href="https://github.com/unslothai/unsloth">Github</a> </i> ⭐️
 # </div>
-# 
+#
 #   This notebook and all Unsloth notebooks are licensed [LGPL-3.0](https://github.com/unslothai/notebooks?tab=LGPL-3.0-1-ov-file#readme).

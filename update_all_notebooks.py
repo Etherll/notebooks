@@ -1056,8 +1056,39 @@ DONT_UPDATE_EXCEPTIONS = [
 # from nb/ regardless. Only the AMD path uses this allowlist -- non-AMD
 # behavior is unchanged.
 AMD_ONLY_NB_SOURCE_ALLOWLIST = [
+    "Falcon_H1-Alpaca.ipynb",
+    "FunctionGemma_(270M)-LMStudio.ipynb",
+    "FunctionGemma_(270M)-Mobile-Actions.ipynb",
+    "FunctionGemma_(270M)-Multi-Turn-Tool-Calling.ipynb",
+    "FunctionGemma_(270M).ipynb",
+    "Gemma3_(270M)_Phone_Deployment.ipynb",
+    "GLM_Flash_A100(80GB).ipynb",
+    "gpt_oss_(20B)_Reinforcement_Learning_2048_Game_DGX_Spark.ipynb",
+    "gpt_oss_(20B)_Reinforcement_Learning_2048_Game.ipynb",
     "gpt_oss_(20B)_Reinforcement_Learning_2048_Game_BF16.ipynb",
+    "LFM2.5_(1.2B)-Conversational.ipynb",
+    "LFM2.5_(1.2B)-GRPO.ipynb",
+    "LFM2.5_(1.2B)-Text_Completion.ipynb",
+    "LFM2.5_(1.2B)-Translation.ipynb",
+    "LFM2.5_VL_(1.6B)-Vision.ipynb",
+    "Liquid_LFM2-Conversational.ipynb",
+    "NeMo-Gym-Multi-Environment.ipynb",
+    "NeMo-Gym-Sudoku.ipynb",
+    "OpenEnv_gpt_oss_(20B)_Reinforcement_Learning_2048_Game.ipynb",
     "OpenEnv_gpt_oss_(20B)_Reinforcement_Learning_2048_Game_BF16.ipynb",
+    "Openenv_wordle_grpo.ipynb",
+    "Qwen_3_5_27B_A100(80GB).ipynb",
+    "Qwen3_(0_6B)-Phone_Deployment.ipynb",
+    "Qwen3_(0.6B)-Reasoning-Conversational-ExecuTorch.ipynb",
+    "Qwen3_5_(0_8B)_Vision.ipynb",
+    "Qwen3_5_(2B)_Vision.ipynb",
+    "Qwen3_5_(4B)_Vision_GRPO.ipynb",
+    "Qwen3_5_(4B)_Vision.ipynb",
+    "Qwen3_5_MoE.ipynb",
+    "Qwen3_6_MoE.ipynb",
+    "Qwen3_MoE.ipynb",
+    "Synthetic_Data_Hackathon.ipynb",
+    "TinyQwen3_MoE.ipynb",
 ]
 
 # Notebooks excluded from automatic README.md listing. You can use a basename,
@@ -1520,6 +1551,52 @@ def _is_install_like_cell(cells, idx, source_text):
     return False
 
 
+def _is_installation_heading(source_text, is_amd_notebook=False):
+    stripped = source_text.strip()
+    if stripped == "### Installation":
+        return True
+    if not is_amd_notebook:
+        return False
+    first_line = stripped.splitlines()[0] if stripped.splitlines() else ""
+    heading = first_line.lstrip("#").strip().lower()
+    return (
+        heading == "installation"
+        or heading.startswith("installation ")
+        or heading.startswith("install unsloth")
+    )
+
+
+def _adjacent_install_like_code_cells(cells, first_code_idx):
+    install_cells = []
+    idx = first_code_idx + 1
+    while idx < len(cells):
+        cell = cells[idx]
+        if cell.get("cell_type") != "code":
+            break
+        source_text = _cell_source_text(cell)
+        if not _is_install_like_cell(cells, idx, source_text):
+            break
+        install_cells.append((idx, source_text))
+        idx += 1
+    return install_cells
+
+
+def _is_residual_non_amd_install_cell(cells, idx, source_text):
+    """Detect source install fragments that must not survive in AMD notebooks."""
+    lower = source_text.lower()
+    if not _is_install_like_cell(cells, idx, source_text):
+        return False
+    if "ROCM_TAG" in source_text or "triton-rocm" in lower:
+        return False
+    return (
+        "COLAB_" in source_text
+        or "unsloth[base]" in source_text
+        or "triton-lang/triton" in source_text
+        or "nvidia-smi" in lower
+        or "cu12" in lower
+    )
+
+
 def _is_stale_amd_announcement(source_text):
     lower = source_text.lower()
     return "to run this, press" in lower and any(
@@ -1681,6 +1758,16 @@ def _validate_amd_install_runtime(notebook_path):
                 "notebook": basename,
                 "cell": index,
                 "markers": ["stale Colab run announcement"],
+            }
+
+        if (
+            cell.get("cell_type") == "markdown"
+            and _is_residual_non_amd_install_cell(cells, index, source)
+        ):
+            return {
+                "notebook": basename,
+                "cell": index,
+                "markers": ["stale install markdown"],
             }
 
         if cell.get("cell_type") != "code":
@@ -2225,7 +2312,7 @@ def _warn_dropped_packages(notebook_path, old_cell_text, new_cell_text):
 
 _AMD_INSTALL_PACKAGE_IGNORE = frozenset({
     "unsloth", "unsloth_zoo", "bitsandbytes", "cut_cross_entropy",
-    "triton", "xformers", "torch", "torchvision", "torchaudio",
+    "triton", "triton_rocm", "xformers", "torch", "torchvision", "torchaudio",
     "numpy", "pillow", "pil", "torchao", "uv", "base", "amd", "python",
 })
 
@@ -2276,7 +2363,7 @@ def _iter_pip_install_arg_strings(text):
     """Yield argument strings from !pip/!uv pip install commands."""
     for line in _logical_install_lines(text):
         for match in re.finditer(
-            r"(?:^|&&\s*)!?(?:uv\s+)?pip\s+install\s+(.+?)(?=\s+&&\s+!?(?:uv\s+)?pip\s+install\b|$)",
+            r"(?:^|&&\s*)!?\s*(?:uv\s+)?pip\s+install\s+(.+?)(?=\s+&&\s+!?\s*(?:uv\s+)?pip\s+install\b|$)",
             line,
         ):
             yield match.group(1).strip()
@@ -2308,6 +2395,17 @@ def _package_key_from_install_token(token):
     if not match:
         return None
     return match.group(1).lower().replace("-", "_")
+
+
+def _install_spec_preference(spec):
+    """Rank duplicate package specs so custom/newer pins beat generic ones."""
+    spec = _clean_install_spec(spec)
+    if spec.startswith("git+") or "://" in spec or " @ git+" in spec:
+        return (3,)
+    match = re.search(r"==\s*([0-9]+(?:\.[0-9]+)*)", spec)
+    if match:
+        return (2, tuple(int(part) for part in match.group(1).split(".")))
+    return (1,)
 
 
 def _clean_install_spec(token):
@@ -2493,9 +2591,10 @@ def _compose_amd_installation(notebook_path, source_install_texts):
     extracted from the source notebook's install cell(s).
     """
     lowered = notebook_path.lower()
+    source_install_blob = "\n".join(text for text in source_install_texts if text).lower()
     if is_path_contains_any(lowered, ["gemma4"]):
         variant_extras = installation_amd_extras_gemma4
-    elif _is_amd_grpo_like_path(notebook_path):
+    elif _is_amd_grpo_like_path(notebook_path) and "vllm" in source_install_blob:
         variant_extras = installation_amd_extras_grpo
     else:
         variant_extras = installation_amd_extras_default
@@ -2516,16 +2615,23 @@ def _compose_amd_installation(notebook_path, source_install_texts):
         package_groups.extend(_extract_install_package_groups(text))
 
     merged_groups = {}
+    spec_locations = {}
     for flags, specs in package_groups:
-        target = merged_groups.setdefault(flags, [])
         for spec in specs:
-            if spec not in target:
-                target.append(spec)
-    if _is_amd_grpo_like_path(notebook_path):
-        default_specs = merged_groups.setdefault((), [])
-        if not any(_package_key_from_install_token(spec) == "vllm" for spec in default_specs):
-            default_specs.append("vllm")
-
+            key = _package_key_from_install_token(spec)
+            if not key:
+                continue
+            existing = spec_locations.get(key)
+            if existing is not None:
+                old_flags, old_spec = existing
+                if _install_spec_preference(old_spec) >= _install_spec_preference(spec):
+                    continue
+                old_group = merged_groups.get(old_flags, [])
+                if old_spec in old_group:
+                    old_group.remove(old_spec)
+            target = merged_groups.setdefault(flags, [])
+            target.append(spec)
+            spec_locations[key] = (flags, spec)
     extra_blocks = []
     if any("{_qat_" in spec for specs in merged_groups.values() for spec in specs):
         extra_blocks.append(_build_qat_version_vars_block())
@@ -3608,6 +3714,7 @@ def update_notebook_sections(
         is_llama = is_path_contains_any(notebook_path.lower(), ["llama"])
         is_vision = is_path_contains_any(notebook_path.lower(), ["vision"])
         is_qwen3 = is_path_contains_any(notebook_path.lower(), ["qwen3"])
+        install_section_updated = False
 
         while i < len(notebook_content["cells"]):
             cell = notebook_content["cells"][i]
@@ -3629,19 +3736,24 @@ def update_notebook_sections(
                         notebook_content["cells"][i + 1]["source"] = _source_lines(announcement)
                         updated = True
                         i += 1
-                elif source_str == "### Installation" or (
-                    is_amd_notebook
-                    and source_str.splitlines()
-                    and source_str.splitlines()[0].lstrip("#").strip().lower() == "installation"
-                ):
+                elif _is_installation_heading(source_str, is_amd_notebook):
                     if (
                         i + 1 < len(notebook_content["cells"])
                         and notebook_content["cells"][i + 1]["cell_type"] == "code"
                     ):
+                        install_section_updated = True
                         source_install_texts = []
                         old_install_src = _cell_source_text(notebook_content["cells"][i + 1])
                         source_install_texts.append(old_install_src)
-                        if (
+                        amd_followup_install_cells = []
+                        if is_amd_notebook:
+                            amd_followup_install_cells = _adjacent_install_like_code_cells(
+                                notebook_content["cells"], i + 1
+                            )
+                            source_install_texts.extend(
+                                source_text for _idx, source_text in amd_followup_install_cells
+                            )
+                        elif (
                             i + 2 < len(notebook_content["cells"])
                             and notebook_content["cells"][i + 2]["cell_type"] == "code"
                         ):
@@ -3663,9 +3775,6 @@ def update_notebook_sections(
                                     del notebook_content["cells"][i + 2]
                             elif is_amd_notebook:
                                 installation = installation_grpo_content
-                                # AMD: single self-contained install cell, no extra GRPO cell needed
-                                if i + 2 < len(notebook_content["cells"]):
-                                    del notebook_content["cells"][i + 2]
                             else:
                                 installation = installation_grpo_content
                                 # TODO: Remove after GRPO numpy bug fixed!
@@ -3681,8 +3790,6 @@ def update_notebook_sections(
                                     del notebook_content["cells"][i + 2]
                             elif is_amd_notebook:
                                 installation = installation_synthetic_data_content
-                                if i + 2 < len(notebook_content["cells"]):
-                                    del notebook_content["cells"][i + 2]
                             else:
                                 installation = installation_synthetic_data_content
                                 # TODO: Remove after GRPO numpy bug fixed!
@@ -3845,6 +3952,15 @@ def update_notebook_sections(
                         if is_amd_notebook:
                             selected_install_text = "".join(installation) if isinstance(installation, list) else installation
                             source_install_texts.insert(0, selected_install_text)
+                            if (
+                                is_path_contains_any(notebook_path.lower(), ["grpo"])
+                                and not is_path_contains_any(notebook_path.lower(), ["gpt_oss", "gpt-oss"])
+                            ):
+                                source_install_texts.append(installation_extra_grpo_content)
+                            if is_path_contains_any(notebook_path.lower(), ["qwen3_6"]):
+                                source_install_texts.append(
+                                    "!uv pip install --no-build-isolation flash-linear-attention causal_conv1d==1.6.0"
+                                )
                             installation, amd_extras_cell_text = _compose_amd_installation(
                                 notebook_path, source_install_texts
                             )
@@ -3862,33 +3978,10 @@ def update_notebook_sections(
                         if not is_amd_notebook:
                             _warn_dropped_packages(notebook_path, old_install_src, new_install_text)
 
-                        amd_followup_install_src = None
-                        if (
-                            is_amd_notebook
-                            and i + 2 < len(notebook_content["cells"])
-                            and notebook_content["cells"][i + 2]["cell_type"] == "code"
-                        ):
-                            next_install_src = _cell_source_text(notebook_content["cells"][i + 2])
-                            if _is_install_like_cell(notebook_content["cells"], i + 2, next_install_src):
-                                amd_followup_install_src = next_install_src
-                                # Fold any extra package groups from the source's
-                                # follow-up install cell into the AMD extras cell
-                                # (or build one if we don't have one yet). When
-                                # there's no extras cell yet, seed it with a
-                                # `_pip` definition so the appended _pip(...)
-                                # calls have something to call into.
-                                if not amd_extras_cell_text:
-                                    amd_extras_cell_text = installation_amd_extras_grpo.rstrip().split(
-                                        'os.environ["UNSLOTH_VLLM_STANDBY"]', 1
-                                    )[0].rstrip() + "\n"
-                                amd_extras_cell_text = _append_missing_amd_install_groups(
-                                    amd_extras_cell_text,
-                                    amd_followup_install_src,
-                                )
-
                         notebook_content["cells"][i + 1]["source"] = new_install_text
-                        if amd_followup_install_src is not None:
-                            del notebook_content["cells"][i + 2]
+                        if is_amd_notebook:
+                            for cell_index, _source_text in reversed(amd_followup_install_cells):
+                                del notebook_content["cells"][cell_index]
                         # Insert/replace the AMD extras cell directly after the
                         # canonical install cell so per-variant tweaks and
                         # notebook-specific extras run after the bash setup.
@@ -3910,6 +4003,97 @@ def update_notebook_sections(
                             i += 1
 
             i += 1
+
+        if is_amd_notebook and is_path_contains_any(notebook_path.lower(), ["qwen3_6"]):
+            remove_indices = set()
+            for cell_index, cell in enumerate(notebook_content["cells"]):
+                source_text = _cell_source_text(cell)
+                if (
+                    cell.get("cell_type") == "code"
+                    and "CUDA-enabled PyTorch is required" in source_text
+                    and "causal_conv1d_url" in source_text
+                ):
+                    remove_indices.add(cell_index)
+                    if (
+                        cell_index > 0
+                        and notebook_content["cells"][cell_index - 1].get("cell_type") == "markdown"
+                        and "flash-linear-attention" in _cell_source_text(notebook_content["cells"][cell_index - 1]).lower()
+                    ):
+                        remove_indices.add(cell_index - 1)
+            if remove_indices:
+                for cell_index in sorted(remove_indices, reverse=True):
+                    del notebook_content["cells"][cell_index]
+                updated = True
+
+        if is_amd_notebook and not install_section_updated:
+            notebook_code = "\n".join(
+                _cell_source_text(cell)
+                for cell in notebook_content["cells"]
+                if cell.get("cell_type") == "code"
+            )
+            if "from unsloth import" in notebook_code or "import unsloth" in notebook_code:
+                source_install_texts = [
+                    installation_synthetic_data_content
+                    if is_path_contains_any(notebook_path.lower(), ["synthetic_data"])
+                    else installation_content
+                ]
+                installation, amd_extras_cell_text = _compose_amd_installation(
+                    notebook_path, source_install_texts
+                )
+                install_cells = [
+                    {
+                        "cell_type": "markdown",
+                        "metadata": {},
+                        "source": ["### Installation\n"],
+                    },
+                    {
+                        "cell_type": "code",
+                        "metadata": {},
+                        "source": installation,
+                        "execution_count": None,
+                        "outputs": [],
+                    },
+                ]
+                if amd_extras_cell_text and amd_extras_cell_text.strip():
+                    install_cells.append(
+                        {
+                            "cell_type": "code",
+                            "metadata": {},
+                            "source": amd_extras_cell_text,
+                            "execution_count": None,
+                            "outputs": [],
+                        }
+                    )
+                insert_at = first_markdown_index + 1 if first_markdown_index != -1 else 0
+                notebook_content["cells"][insert_at:insert_at] = install_cells
+                updated = True
+
+        if is_amd_notebook:
+            remove_indices = set()
+            for cell_index, cell in enumerate(notebook_content["cells"]):
+                cell_type = cell.get("cell_type")
+                if cell_type not in ("code", "markdown"):
+                    continue
+                source_text = _cell_source_text(cell)
+                if not _is_residual_non_amd_install_cell(
+                    notebook_content["cells"], cell_index, source_text
+                ):
+                    continue
+                remove_indices.add(cell_index)
+                if (
+                    cell_type == "code"
+                    and cell_index > 0
+                    and notebook_content["cells"][cell_index - 1].get("cell_type") == "markdown"
+                    and _is_installation_heading(
+                        _cell_source_text(notebook_content["cells"][cell_index - 1]),
+                        is_amd_notebook=True,
+                    )
+                ):
+                    remove_indices.add(cell_index - 1)
+            if remove_indices:
+                for cell_index in sorted(remove_indices, reverse=True):
+                    del notebook_content["cells"][cell_index]
+                updated = True
 
         # Add text to the last cell
         if notebook_content["cells"]:
@@ -5109,11 +5293,16 @@ def remove_unwanted_section(script_content):
         after_section = script_content[end_index:]
 
         lines = section_to_comment.split('\n')
-        commented_lines = [f"# {line}" for line in lines]
+        commented_lines = [f"# {line}" if line else "#" for line in lines]
         commented_section = '\n'.join(commented_lines)
         return before_section + commented_section + after_section
     else:
         return script_content
+
+
+def _strip_trailing_whitespace(text):
+    trailing_newline = "\n" if text.endswith("\n") else ""
+    return "\n".join(line.rstrip() for line in text.splitlines()) + trailing_newline
 
 def convert_notebook_to_script(notebook_path: str, output_path: str):
     exporter = PythonExporter()
@@ -5129,7 +5318,7 @@ def convert_notebook_to_script(notebook_path: str, output_path: str):
 
     (body, resources) = exporter.from_notebook_node(notebook_content)
 
-    body = remove_unwanted_section(body)
+    body = _strip_trailing_whitespace(remove_unwanted_section(body))
 
     with open(output_path, 'w', encoding='utf-8', newline='') as f:
         f.write(body)

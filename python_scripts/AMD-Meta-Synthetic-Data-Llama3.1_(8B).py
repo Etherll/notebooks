@@ -7,283 +7,297 @@
 # <a href="https://discord.gg/unsloth"><img src="https://github.com/unslothai/unsloth/raw/main/images/Discord button.png" width="145"></a>
 # <a href="https://unsloth.ai/docs/"><img src="https://github.com/unslothai/unsloth/blob/main/images/documentation%20green%20button.png?raw=true" width="125"></a> Join Discord if you need help + ⭐ <i>Star us on <a href="https://github.com/unslothai/unsloth">Github</a> </i> ⭐
 # </div>
-# 
+#
 # To install Unsloth on your local device, follow [our guide](https://unsloth.ai/docs/get-started/install). This notebook is licensed [LGPL-3.0](https://github.com/unslothai/notebooks?tab=LGPL-3.0-1-ov-file#readme).
-# 
+#
 # You will learn how to do [data prep](#Data), how to [train](#Train), how to [run the model](#Inference), & how to save it
 
 # ### News
 
 # Introducing **Unsloth Studio** - a new open source, no-code web UI to train and run LLMs. [Blog](https://unsloth.ai/docs/new/studio) • [Notebook](https://colab.research.google.com/github/unslothai/unsloth/blob/main/studio/Unsloth_Studio_Colab.ipynb)
-# 
+#
 # <table><tr>
 # <td align="center"><a href="https://unsloth.ai/docs/new/studio"><img src="https://unsloth.ai/docs/~gitbook/image?url=https%3A%2F%2F3215535692-files.gitbook.io%2F~%2Ffiles%2Fv0%2Fb%2Fgitbook-x-prod.appspot.com%2Fo%2Fspaces%252FxhOjnexMCB3dmuQFQ2Zq%252Fuploads%252FxV1PO5DbF3ksB51nE2Tw%252Fmore%2520cropped%2520ui%2520for%2520homepage.png%3Falt%3Dmedia%26token%3Df75942c9-3d8d-4b59-8ba2-1a4a38de1b86&width=376&dpr=3&quality=100&sign=a663c397&sv=2" width="200" height="120" alt="Unsloth Studio Training UI"></a><br><sub><b>Train models</b> — no code needed</sub></td>
 # <td align="center"><a href="https://unsloth.ai/docs/new/studio"><img src="https://unsloth.ai/docs/~gitbook/image?url=https%3A%2F%2F3215535692-files.gitbook.io%2F~%2Ffiles%2Fv0%2Fb%2Fgitbook-x-prod.appspot.com%2Fo%2Fspaces%252FxhOjnexMCB3dmuQFQ2Zq%252Fuploads%252FRCnTAZ6Uh88DIlU3g0Ij%252Fmainpage%2520unsloth.png%3Falt%3Dmedia%26token%3D837c96b6-bd09-4e81-bc76-fa50421e9bfb&width=376&dpr=3&quality=100&sign=c1a39da1&sv=2" width="200" height="120" alt="Unsloth Studio Chat UI"></a><br><sub><b>Run GGUF models</b> on Mac, Windows & Linux</sub></td>
 # </tr></table>
-# 
+#
 # Train MoEs - DeepSeek, GLM, Qwen and gpt-oss 12x faster with 35% less VRAM. [Blog](https://unsloth.ai/docs/new/faster-moe)
-# 
+#
 # Ultra Long-Context Reinforcement Learning is here with 7x more context windows! [Blog](https://unsloth.ai/docs/new/grpo-long-context)
-# 
+#
 # New in Reinforcement Learning: [FP8 RL](https://unsloth.ai/docs/new/fp8-reinforcement-learning) • [Vision RL](https://unsloth.ai/docs/new/vision-reinforcement-learning-vlm-rl) • [Standby](https://unsloth.ai/docs/basics/memory-efficient-rl) • [gpt-oss RL](https://unsloth.ai/docs/new/gpt-oss-reinforcement-learning)
-# 
+#
 # Visit our docs for all our [model uploads](https://unsloth.ai/docs/get-started/unsloth-model-catalog) and [notebooks](https://unsloth.ai/docs/get-started/unsloth-notebooks).
 
 # # ### Installation
-# 
+#
 # # In[ ]:
-# 
-# 
-# get_ipython().run_cell_magic('capture', '', 'import os, importlib.util, subprocess, sys\n\ndef _pip(*packages):\n    try:\n        if subprocess.run(["uv", "--version"], capture_output=True).returncode == 0:\n            cmd = ["uv", "pip", "install", "--system", "-qqq"]\n        else:\n            raise FileNotFoundError\n    except FileNotFoundError:\n        cmd = [sys.executable, "-m", "pip", "install", "-qqq"]\n    subprocess.run(cmd + list(packages), check=False)\n\nimport socket\ntry:\n    socket.getaddrinfo("huggingface.co", 443, socket.AF_INET)\nexcept socket.gaierror:\n    with open("/etc/resolv.conf", "a") as _f:\n        _f.write("nameserver 8.8.8.8\\nnameserver 8.8.4.4\\n")\n# ROCm/AMD: torch already installed as ROCm build; skip torch/triton, use [amd] extra\ntry: import numpy; _np = f"numpy=={numpy.__version__}"\nexcept: _np = "numpy"\ntry: import PIL; _pil = f"pillow=={PIL.__version__}"\nexcept: _pil = "pillow"\n_pip(_np, _pil, "bitsandbytes", "cut-cross-entropy", "torchao")\n_pip("--no-deps",\n    "unsloth_zoo[base] @ git+https://github.com/unslothai/unsloth-zoo",\n    "unsloth[amd] @ git+https://github.com/unslothai/unsloth",\n)\n_pip("--upgrade", "--no-deps",\n    "transformers>=5.0.0", "tokenizers", "huggingface_hub>=1.5.0",\n    "datasets==4.3.0", "accelerate", "peft", "sentencepiece",\n    "protobuf", "hf_transfer", "trl>=0.24.0", "unsloth", "unsloth_zoo",\n)\n\n# Notebook-specific packages/setup preserved from the source notebook.\n_pip("vllm", "synthetic-data-kit==0.0.3", "transformers==4.56.2")\n_pip(\n    "--no-deps",\n    "trl==0.22.2",\n    "transformers>=5.0.0",\n    "tokenizers",\n    "huggingface_hub>=1.5.0",\n    "datasets==4.3.0",\n    "accelerate",\n    "peft",\n    "sentencepiece",\n    "protobuf",\n    "hf_transfer",\n    "trl>=0.24.0",\n)\n')
-# 
-# 
-# # ### Synthetic-data-kit
-# 
-# # In[3]:
-# 
-# 
-# # Load and run the model using vllm
-# # we prepend "nohup" and postpend "&" to make the Colab cell run in background
-# get_ipython().system(' nohup python -m vllm.entrypoints.openai.api_server                    --model unsloth/Llama-3.1-8B-Instruct-unsloth-bnb-4bit                    --trust-remote-code                    --dtype half                    --quantization bitsandbytes                    --max-model-len 10000                    --tensor-parallel-size 1                    --gpu-memory-utilization 0.7                    --enable-chunked-prefill                    --port 8000                    > vllm.log &')
-# 
-# 
-# # In[4]:
-# 
-# 
-# # tail vllm logs. Check server has been started correctly
-# get_ipython().system('while ! grep -q "Application startup complete" vllm.log; do tail -n 1 vllm.log; sleep 5; done')
-# 
-# 
-# # Optional: Function to check if vllm server is running. Change False to True and run cell
-# 
-# # In[6]:
-# 
-# 
-# if False:
-#   def is_vllm_server_running(api_base_url = None):
-#       """Simply check if vllm server is running and reachable."""
-#       print(api_base_url)
-#       try:
-#           response = requests.get(f"{api_base_url}/models", timeout = 2)
-#           return response.status_code == 200
-#       except:
-#           return False
-#   is_running = is_vllm_server_running("http://localhost:8000/v1")
-#   if is_running:
-#       print(f"vllm server is running.")
-#   else:
-#       print(f"vllm server is not available.")
-# 
-# 
-# # Create data directories
-# 
-# # In[5]:
-# 
-# 
-# get_ipython().system('mkdir -p data/{pdf,html,youtube,docx,ppt,txt,output,generated,cleaned,final}')
-# 
-# 
-# # ### Ingest source file
-# # 
-# # Ingest source file "https://ai.meta.com/blog/llama-4-multimodal-intelligence/" . Can also use pdf, docx, ppt and youtube video
-# 
-# # In[6]:
-# 
-# 
-# from synthetic_data_kit.core.ingest import process_file
-# import os
-# 
-# # Set variables directly
-# doc_source = "https://ai.meta.com/blog/llama-4-multimodal-intelligence/"
-# output_dir = "data/output"
-# name = None  # Let the process determine the filename automatically
-# config = ctx.config if 'ctx' in locals() else None  # Use ctx if available, otherwise None
-# 
-# try:
-#     # Call process_file directly
-#     output_path = process_file(doc_source, output_dir, name, config)
-#     print(f"Text successfully extracted to {output_path}")
-# except Exception as e:
-#     print(f"Error: {e}")
-# 
-# 
-# # ### Generate QA pairs
-# # 
-# # Generate QA pairs with the help of vllm and Llama-3.1-8B-Instruct-unsloth-bnb-4bit.
-# # set num_pairs to the number of required pairs
-# 
-# # In[9]:
-# 
-# 
-# from synthetic_data_kit.core.create import process_file
-# import os
-# import requests
-# import json
-# 
-# # Set parameters
-# input_file = "data/output/ai_meta_com.txt"
-# output_dir = "data/generated"
-# config_path = ctx.config_path if 'ctx' in locals() else None  # Use ctx if available
-# api_base = "http://localhost:8000/v1"  # Default vllm API endpoint
-# model = "unsloth/Llama-3.1-8B-Instruct-unsloth-bnb-4bit"
-# content_type = "qa"
-# num_pairs = 10
-# verbose = False
-# 
-# # Read the content of the input file
-# with open(input_file, 'r') as f:
-#     text_content = f.read()
-# 
-# 
-# print("\nGenerating QA pairs...")
-# try:
-#     # Call process_file directly with all parameters
-#     output_path = process_file(
-#         input_file,
-#         output_dir,
-#         config_path,
-#         api_base,
-#         model,
-#         content_type,
-#         num_pairs,
-#         verbose
-#     )
-# 
-#     if output_path:
-#         print(f"Content saved to {output_path}")
-# 
-#         # Additionally, print the content of the generated file
-#         try:
-#             with open(output_path, 'r') as f:
-#                 output_content = f.read()
-#             print("\nGenerated content (first 500 chars):")
-#             print(output_content[:500] + "..." if len(output_content) > 500 else output_content)
-#         except Exception as e:
-#             print(f"Could not read generated file: {e}")
-#     else:
-#         print("No output was generated")
-# except Exception as e:
-#     print(f"Error: {e}")
-# 
-# 
-# # ### Curate Data Pairs
-# 
-# # In[10]:
-# 
-# 
-# from synthetic_data_kit.core.curate import curate_qa_pairs
-# 
-# # Set all parameters directly
-# input_file = "data/generated/ai_meta_com_qa_pairs.json"
-# cleaned_dir = "data/cleaned"
-# base_name = os.path.splitext(os.path.basename(input_file))[0]
-# output = os.path.join(cleaned_dir, f"{base_name}_cleaned.json")
-# 
-# threshold = None  # Use default threshold
-# config_path = ctx.config_path if 'ctx' in locals() else None  # Use ctx if available
-# verbose = False
-# 
-# print("\nCurating generated pairs...")
-# 
-# try:
-#     # Call curate_qa_pairs directly
-#     result_path = curate_qa_pairs(
-#         input_file,
-#         output,
-#         threshold,
-#         api_base,
-#         model,
-#         config_path,
-#         verbose
-#     )
-# 
-#     print(f"Cleaned content saved to {result_path}")
-# 
-#     # Display the content of the cleaned file
-#     try:
-#         with open(result_path, 'r') as f:
-#             output_content = f.read()
-#         print("\nGenerated content (first 500 chars):")
-#         print(output_content[:500] + "..." if len(output_content) > 500 else output_content)
-#     except Exception as e:
-#         print(f"Could not read cleaned file: {e}")
-# except Exception as e:
-#     print(f"Error: {e}")
-# 
-# 
-# # ### Save to chatML format
-# 
-# # In[11]:
-# 
-# 
-# from synthetic_data_kit.core.save_as import convert_format
-# import os
-# import json
-# 
-# # Set all parameters directly
-# input_file = "data/cleaned/ai_meta_com_qa_pairs_cleaned.json"
-# format_type = "ft"  # OpenAI fine-tuning format
-# storage_format = "json"  # Default storage format
-# 
-# # Set up output path
-# final_dir = "data/final"
-# #os.makedirs(final_dir, exist_ok = True)
-# base_name = os.path.splitext(os.path.basename(input_file))[0]
-# 
-# # Determine output file path
-# if storage_format == "hf":
-#     output_path = os.path.join(final_dir, f"{base_name}_{format_type}_hf")
-# else:
-#     if format_type == "jsonl":
-#         output_path = os.path.join(final_dir, f"{base_name}.jsonl")
-#     else:
-#         output_path = os.path.join(final_dir, f"{base_name}_{format_type}.json")
-# 
-# # Load config if available
-# config = ctx.config if 'ctx' in locals() else None
-# 
-# try:
-#     # Call convert_format directly
-#     result_path = convert_format(
-#         input_file,
-#         output_path,
-#         format_type,
-#         config,
-#         storage_format = storage_format
-#     )
-# 
-#     print(f"Converted to {format_type} format and saved to {result_path}")
-# 
-#     # Display the content of the converted file
-#     try:
-#         if os.path.isfile(result_path):
-#             with open(result_path, 'r') as f:
-#                 output_content = f.read()
-#             print("\nConverted content (first 500 chars):")
-#             print(output_content[:500] + "..." if len(output_content) > 500 else output_content)
-#         else:
-#             # For HF datasets, it's a directory
-#             print(f"\nSaved as HF dataset directory at {result_path}")
-#             if os.path.exists(os.path.join(result_path, "dataset_info.json")):
-#                 with open(os.path.join(result_path, "dataset_info.json"), 'r') as f:
-#                     info = json.load(f)
-#                 print(f"Dataset info: {info}")
-#     except Exception as e:
-#         print(f"Could not read converted file: {e}")
-# 
-# except Exception as e:
-#     print(f"Error: {e}")
-# 
-# 
-# # In[12]:
-# 
-# 
-# # kill vllm server. Takes around 5 seconds.
-# print("Attempting to terminate the vllm server")
-# get_ipython().system('pkill -f "vllm.entrypoints.openai.api_server"')
-# 
-# 
-# # ### Unsloth
+#
+#
+# get_ipython().run_cell_magic('bash', '', 'python -m pip install -qU uv --root-user-action=ignore\n\nROCM_TAG="$({ command -v amd-smi >/dev/null 2>&1 && amd-smi version 2>/dev/null | awk -F\'ROCm version: \' \'NF>1{split($2,a,"."); print "rocm"a[1]"."a[2]; ok=1; exit} END{exit !ok}\'; } || { [ -r /opt/rocm/.info/version ] && awk -F. \'{print "rocm"$1"."$2; exit}\' /opt/rocm/.info/version; } || { command -v hipconfig >/dev/null 2>&1 && hipconfig --version 2>/dev/null | awk -F\': *\' \'/HIP version/{split($2,a,"."); print "rocm"a[1]"."a[2]; ok=1; exit} END{exit !ok}\'; } || { command -v dpkg-query >/dev/null 2>&1 && ver="$(dpkg-query -W -f=\'${Version}\\n\' rocm-core 2>/dev/null)" && [ -n "$ver" ] && awk -F\'[.-]\' \'{print "rocm"$1"."$2; exit}\' <<<"$ver"; } || { command -v rpm >/dev/null 2>&1 && ver="$(rpm -q --qf \'%{VERSION}\\n\' rocm-core 2>/dev/null)" && [ -n "$ver" ] && awk -F\'[.-]\' \'{print "rocm"$1"."$2; exit}\' <<<"$ver"; })"\n[ -n "$ROCM_TAG" ] || { echo "Could not detect ROCm. Install ROCm first or set ROCM_TAG manually."; exit 1; }\ncase "$ROCM_TAG" in\n  rocm6.[0-4]|rocm7.[02]) T="$ROCM_TAG" ;;\n  rocm6.*) T="rocm6.4" ;;\n  *) T="rocm7.1" ;;\nesac\npip install bitsandbytes\nPYTORCH_INDEX_URL="https://download.pytorch.org/whl/${T}"\nuv pip install --system -U --force-reinstall \\\n    torch torchvision torchaudio triton-rocm \\\n    --index-url "$PYTORCH_INDEX_URL"\nuv pip install --system cut-cross-entropy torchao --no-deps\nuv pip install --system -U --no-deps "unsloth[amd]" "unsloth_zoo[amd]"\nuv pip install --system --no-deps -r "$(python -c \'import pathlib,site;print(next(p for r in [*site.getsitepackages(),site.getusersitepackages()] if (p:=pathlib.Path(r,"studio/backend/requirements/no-torch-runtime.txt")).exists()))\')" torchao\n')
+#
+#
+# # In[ ]:
+#
+#
+# get_ipython().run_cell_magic('capture', '', 'import os, subprocess, sys\n\ndef _pip(*packages):\n    try:\n        if subprocess.run(["uv", "--version"], capture_output=True).returncode == 0:\n            cmd = ["uv", "pip", "install", "--system", "-qqq"]\n        else:\n            raise FileNotFoundError\n    except FileNotFoundError:\n        cmd = [sys.executable, "-m", "pip", "install", "-qqq"]\n    subprocess.run(cmd + list(packages), check=False)\n\n# Notebook-specific packages/setup preserved from the source notebook.\n_pip("vllm", "synthetic-data-kit==0.0.3", "transformers==4.56.2")\n_pip("--no-deps", "trl==0.22.2")\n')
+#
+#
+# # In[ ]:
+#
+#
+# # Placeholder
+#
+#
+## ### Unsloth
+
+# ### Synthetic-data-kit
+
+# In[3]:
+
+
+# Load and run the model using vllm
+# we prepend "nohup" and postpend "&" to make the Colab cell run in background
+get_ipython().system(' nohup python -m vllm.entrypoints.openai.api_server                    --model unsloth/Llama-3.1-8B-Instruct-unsloth-bnb-4bit                    --trust-remote-code                    --dtype half                    --quantization bitsandbytes                    --max-model-len 10000                    --tensor-parallel-size 1                    --gpu-memory-utilization 0.7                    --enable-chunked-prefill                    --port 8000                    > vllm.log &')
+
+
+# In[4]:
+
+
+# tail vllm logs. Check server has been started correctly
+get_ipython().system('while ! grep -q "Application startup complete" vllm.log; do tail -n 1 vllm.log; sleep 5; done')
+
+
+# Optional: Function to check if vllm server is running. Change False to True and run cell
+
+# In[6]:
+
+
+if False:
+  def is_vllm_server_running(api_base_url = None):
+      """Simply check if vllm server is running and reachable."""
+      print(api_base_url)
+      try:
+          response = requests.get(f"{api_base_url}/models", timeout = 2)
+          return response.status_code == 200
+      except:
+          return False
+  is_running = is_vllm_server_running("http://localhost:8000/v1")
+  if is_running:
+      print(f"vllm server is running.")
+  else:
+      print(f"vllm server is not available.")
+
+
+# Create data directories
+
+# In[5]:
+
+
+get_ipython().system('mkdir -p data/{pdf,html,youtube,docx,ppt,txt,output,generated,cleaned,final}')
+
+
+# ### Ingest source file
+#
+# Ingest source file "https://ai.meta.com/blog/llama-4-multimodal-intelligence/" . Can also use pdf, docx, ppt and youtube video
+
+# In[6]:
+
+
+from synthetic_data_kit.core.ingest import process_file
+import os
+
+# Set variables directly
+doc_source = "https://ai.meta.com/blog/llama-4-multimodal-intelligence/"
+output_dir = "data/output"
+name = None  # Let the process determine the filename automatically
+config = ctx.config if 'ctx' in locals() else None  # Use ctx if available, otherwise None
+
+try:
+    # Call process_file directly
+    output_path = process_file(doc_source, output_dir, name, config)
+    print(f"Text successfully extracted to {output_path}")
+except Exception as e:
+    print(f"Error: {e}")
+
+
+# ### Generate QA pairs
+#
+# Generate QA pairs with the help of vllm and Llama-3.1-8B-Instruct-unsloth-bnb-4bit.
+# set num_pairs to the number of required pairs
+
+# In[9]:
+
+
+from synthetic_data_kit.core.create import process_file
+import os
+import requests
+import json
+
+# Set parameters
+input_file = "data/output/ai_meta_com.txt"
+output_dir = "data/generated"
+config_path = ctx.config_path if 'ctx' in locals() else None  # Use ctx if available
+api_base = "http://localhost:8000/v1"  # Default vllm API endpoint
+model = "unsloth/Llama-3.1-8B-Instruct-unsloth-bnb-4bit"
+content_type = "qa"
+num_pairs = 10
+verbose = False
+
+# Read the content of the input file
+with open(input_file, 'r') as f:
+    text_content = f.read()
+
+
+print("\nGenerating QA pairs...")
+try:
+    # Call process_file directly with all parameters
+    output_path = process_file(
+        input_file,
+        output_dir,
+        config_path,
+        api_base,
+        model,
+        content_type,
+        num_pairs,
+        verbose
+    )
+
+    if output_path:
+        print(f"Content saved to {output_path}")
+
+        # Additionally, print the content of the generated file
+        try:
+            with open(output_path, 'r') as f:
+                output_content = f.read()
+            print("\nGenerated content (first 500 chars):")
+            print(output_content[:500] + "..." if len(output_content) > 500 else output_content)
+        except Exception as e:
+            print(f"Could not read generated file: {e}")
+    else:
+        print("No output was generated")
+except Exception as e:
+    print(f"Error: {e}")
+
+
+# ### Curate Data Pairs
+
+# In[10]:
+
+
+from synthetic_data_kit.core.curate import curate_qa_pairs
+
+# Set all parameters directly
+input_file = "data/generated/ai_meta_com_qa_pairs.json"
+cleaned_dir = "data/cleaned"
+base_name = os.path.splitext(os.path.basename(input_file))[0]
+output = os.path.join(cleaned_dir, f"{base_name}_cleaned.json")
+
+threshold = None  # Use default threshold
+config_path = ctx.config_path if 'ctx' in locals() else None  # Use ctx if available
+verbose = False
+
+print("\nCurating generated pairs...")
+
+try:
+    # Call curate_qa_pairs directly
+    result_path = curate_qa_pairs(
+        input_file,
+        output,
+        threshold,
+        api_base,
+        model,
+        config_path,
+        verbose
+    )
+
+    print(f"Cleaned content saved to {result_path}")
+
+    # Display the content of the cleaned file
+    try:
+        with open(result_path, 'r') as f:
+            output_content = f.read()
+        print("\nGenerated content (first 500 chars):")
+        print(output_content[:500] + "..." if len(output_content) > 500 else output_content)
+    except Exception as e:
+        print(f"Could not read cleaned file: {e}")
+except Exception as e:
+    print(f"Error: {e}")
+
+
+# ### Save to chatML format
+
+# In[11]:
+
+
+from synthetic_data_kit.core.save_as import convert_format
+import os
+import json
+
+# Set all parameters directly
+input_file = "data/cleaned/ai_meta_com_qa_pairs_cleaned.json"
+format_type = "ft"  # OpenAI fine-tuning format
+storage_format = "json"  # Default storage format
+
+# Set up output path
+final_dir = "data/final"
+#os.makedirs(final_dir, exist_ok = True)
+base_name = os.path.splitext(os.path.basename(input_file))[0]
+
+# Determine output file path
+if storage_format == "hf":
+    output_path = os.path.join(final_dir, f"{base_name}_{format_type}_hf")
+else:
+    if format_type == "jsonl":
+        output_path = os.path.join(final_dir, f"{base_name}.jsonl")
+    else:
+        output_path = os.path.join(final_dir, f"{base_name}_{format_type}.json")
+
+# Load config if available
+config = ctx.config if 'ctx' in locals() else None
+
+try:
+    # Call convert_format directly
+    result_path = convert_format(
+        input_file,
+        output_path,
+        format_type,
+        config,
+        storage_format = storage_format
+    )
+
+    print(f"Converted to {format_type} format and saved to {result_path}")
+
+    # Display the content of the converted file
+    try:
+        if os.path.isfile(result_path):
+            with open(result_path, 'r') as f:
+                output_content = f.read()
+            print("\nConverted content (first 500 chars):")
+            print(output_content[:500] + "..." if len(output_content) > 500 else output_content)
+        else:
+            # For HF datasets, it's a directory
+            print(f"\nSaved as HF dataset directory at {result_path}")
+            if os.path.exists(os.path.join(result_path, "dataset_info.json")):
+                with open(os.path.join(result_path, "dataset_info.json"), 'r') as f:
+                    info = json.load(f)
+                print(f"Dataset info: {info}")
+    except Exception as e:
+        print(f"Could not read converted file: {e}")
+
+except Exception as e:
+    print(f"Error: {e}")
+
+
+# In[12]:
+
+
+# kill vllm server. Takes around 5 seconds.
+print("Attempting to terminate the vllm server")
+get_ipython().system('pkill -f "vllm.entrypoints.openai.api_server"')
+
+
+# ### Unsloth
 
 # In[16]:
 
@@ -339,7 +353,7 @@ model = FastLanguageModel.get_peft_model(
 # <a name="Data"></a>
 # ### Data Prep
 # We now use the `ChatML` format for conversation style finetunes. We use [Open Assistant conversations](https://huggingface.co/datasets/philschmid/guanaco-sharegpt-style) in ShareGPT style. ChatML renders multi turn conversations like below:
-# 
+#
 # ```
 # <|im_start|>system
 # You are a helpful assistant.<|im_end|>
@@ -348,15 +362,15 @@ model = FastLanguageModel.get_peft_model(
 # <|im_start|>assistant
 # Paris.
 # ```
-# 
+#
 # **[NOTE]** To train only on completions (ignoring the user's input) read our docs [here](https://unsloth.ai/docs/get-started/fine-tuning-llms-guide/lora-hyperparameters-guide#training-on-completions-only-masking-out-inputs)
-# 
+#
 # We use our `get_chat_template` function to get the correct chat template. We support `zephyr, chatml, mistral, llama, alpaca, vicuna, vicuna_old` and our own optimized `unsloth` template.
-# 
+#
 # Normally one has to train `<|im_start|>` and `<|im_end|>`. We instead map `<|im_end|>` to be the EOS token, and leave `<|im_start|>` as is. This requires no additional training of additional tokens.
-# 
+#
 # Note ShareGPT uses `{"from": "human", "value" : "Hi"}` and not `{"role": "user", "content" : "Hi"}`, so we use `mapping` to map it.
-# 
+#
 # For text completions like novel writing, try this [notebook](https://colab.research.google.com/github/unslothai/notebooks/blob/main/nb/Mistral_(7B)-Text_Completion.ipynb).
 
 # In[18]:
@@ -394,11 +408,11 @@ print(dataset[1]["text"])
 
 
 # If you're looking to make your own chat template, that also is possible! You
-# 
+#
 # ---
-# 
+#
 # must use the Jinja templating regime. We provide our own stripped down version of the `Unsloth template` which we find to be more efficient, and leverages ChatML, Zephyr and Alpaca styles.
-# 
+#
 # More info on chat templates on [our wiki page!](https://github.com/unslothai/unsloth/wiki#chat-templates)
 
 # In[21]:
@@ -552,7 +566,7 @@ _ = model.generate(input_ids = inputs, streamer = text_streamer, max_new_tokens 
 # <a name="Save"></a>
 # ### Saving, loading finetuned models
 # To save the final model as LoRA adapters, either use Hugging Face's `push_to_hub` for an online save or `save_pretrained` for a local save.
-# 
+#
 # **[NOTE]** This ONLY saves the LoRA adapters, and not the full model. To save to 16bit or GGUF, scroll down!
 
 # In[28]:
@@ -610,7 +624,7 @@ if False:
 
 
 # ### Saving to float16 for VLLM
-# 
+#
 # We also support saving to `float16` directly. Select `merged_16bit` for float16 or `merged_4bit` for int4. We also allow `lora` adapters as a fallback. Use `push_to_hub_merged` to upload to your Hugging Face account! You can go to https://huggingface.co/settings/tokens for your personal tokens. See [our docs](https://unsloth.ai/docs/basics/inference-and-deployment) for more deployment options.
 
 # In[31]:
@@ -635,7 +649,7 @@ if False:
 
 # ### GGUF / llama.cpp Conversion
 # To save to `GGUF` / `llama.cpp`, we support it natively now! We clone `llama.cpp` and we default save it to `q8_0`. We allow all methods like `q4_k_m`. Use `save_pretrained_gguf` for local saving and `push_to_hub_gguf` for uploading to HF.
-# 
+#
 # Some supported quant methods (full list on our [docs page](https://unsloth.ai/docs/basics/inference-and-deployment/saving-to-gguf)):
 # * `q8_0` - Fast conversion. High resource use, but generally acceptable.
 # * `q4_k_m` - Recommended. Uses Q6_K for half of the attention.wv and feed_forward.w2 tensors, else Q4_K.
@@ -658,20 +672,20 @@ if False: model.push_to_hub_gguf("HF_USERNAME/meta_synthetic_data_finetune", tok
 
 
 # And we're done! If you have any questions on Unsloth, we have a [Discord](https://discord.gg/unsloth) channel! If you find any bugs or want to keep updated with the latest LLM stuff, or need help, join projects etc, feel free to join our Discord!
-# 
+#
 # Some other resources:
 # 1. Looking to use Unsloth locally? Read our [Installation Guide](https://unsloth.ai/docs/get-started/install) for details on installing Unsloth on Windows, Docker, AMD, Intel GPUs.
 # 2. Learn how to do Reinforcement Learning with our [RL Guide and notebooks](https://unsloth.ai/docs/get-started/reinforcement-learning-rl-guide).
 # 3. Read our guides and notebooks for [Text-to-speech (TTS)](https://unsloth.ai/docs/basics/text-to-speech-tts-fine-tuning) and [vision](https://unsloth.ai/docs/basics/vision-fine-tuning) model support.
 # 4. Explore our [LLM Tutorials Directory](https://unsloth.ai/docs/models/tutorials-how-to-fine-tune-and-run-llms) to find dedicated guides for each model.
 # 5. Need help with Inference? Read our [Inference & Deployment page](https://unsloth.ai/docs/basics/inference-and-deployment) for details on using vLLM, llama.cpp, Ollama etc.
-# 
+#
 # <div class="align-center">
 #   <a href="https://unsloth.ai"><img src="https://github.com/unslothai/unsloth/raw/main/images/unsloth%20new%20logo.png" width="115"></a>
 #   <a href="https://discord.gg/unsloth"><img src="https://github.com/unslothai/unsloth/raw/main/images/Discord.png" width="145"></a>
 #   <a href="https://unsloth.ai/docs/"><img src="https://github.com/unslothai/unsloth/blob/main/images/documentation%20green%20button.png?raw=true" width="125"></a>
-# 
+#
 #   Join Discord if you need help + ⭐️ <i>Star us on <a href="https://github.com/unslothai/unsloth">Github</a> </i> ⭐️
-# 
+#
 #   <b>This notebook and all Unsloth notebooks are licensed [LGPL-3.0](https://github.com/unslothai/notebooks?tab=LGPL-3.0-1-ov-file#readme)</b>
 # </div>
